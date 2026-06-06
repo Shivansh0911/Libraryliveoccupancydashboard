@@ -1,22 +1,24 @@
 import { useState } from "react";
-import { X } from "lucide-react";
+import { X, Trash2 } from "lucide-react";
 import { Region } from "./types";
 
 interface EditRegionModalProps {
   region: Region;
+  isNew?: boolean;
   onSave: (updated: Region) => void;
+  onDelete?: () => void;
   onClose: () => void;
 }
 
-export function EditRegionModal({ region, onSave, onClose }: EditRegionModalProps) {
+export function EditRegionModal({ region, isNew = false, onSave, onDelete, onClose }: EditRegionModalProps) {
   const [name, setName] = useState(region.name);
   const [camId, setCamId] = useState(region.camId);
   const [capacity, setCapacity] = useState(String(region.capacity));
   const [notes, setNotes] = useState(region.locationNotes);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   const handleSave = () => {
     onSave({ ...region, name, camId, capacity: parseInt(capacity) || region.capacity, locationNotes: notes });
-    onClose();
   };
 
   const inputStyle: React.CSSProperties = {
@@ -80,7 +82,7 @@ export function EditRegionModal({ region, onSave, onClose }: EditRegionModalProp
               color: "#F1F5F9",
             }}
           >
-            Edit Region
+            {isNew ? "Add Region" : "Edit Region"}
           </span>
           <button
             onClick={onClose}
@@ -109,6 +111,7 @@ export function EditRegionModal({ region, onSave, onClose }: EditRegionModalProp
             type="text"
             value={name}
             onChange={e => setName(e.target.value)}
+            placeholder="e.g. Main Reading Hall"
             style={inputStyle}
             onFocus={e => { (e.target as HTMLInputElement).style.borderColor = "#6366F1"; }}
             onBlur={e => { (e.target as HTMLInputElement).style.borderColor = "#334155"; }}
@@ -117,11 +120,12 @@ export function EditRegionModal({ region, onSave, onClose }: EditRegionModalProp
 
         {/* Camera ID */}
         <div>
-          <label style={labelStyle}>Camera ID / Stream URL</label>
+          <label style={labelStyle}>Camera ID / URL</label>
           <input
             type="text"
             value={camId}
             onChange={e => setCamId(e.target.value)}
+            placeholder="e.g. cam_02"
             style={inputStyle}
             onFocus={e => { (e.target as HTMLInputElement).style.borderColor = "#6366F1"; }}
             onBlur={e => { (e.target as HTMLInputElement).style.borderColor = "#334155"; }}
@@ -135,7 +139,7 @@ export function EditRegionModal({ region, onSave, onClose }: EditRegionModalProp
               display: "block",
             }}
           >
-            Enter the RTSP stream URL or camera identifier for occupancy detection
+            ID the ML node uses when posting counts
           </span>
         </div>
 
@@ -153,9 +157,9 @@ export function EditRegionModal({ region, onSave, onClose }: EditRegionModalProp
           />
         </div>
 
-        {/* Location Notes */}
+        {/* Notes */}
         <div>
-          <label style={labelStyle}>Location Notes</label>
+          <label style={labelStyle}>Notes (optional)</label>
           <textarea
             value={notes}
             onChange={e => setNotes(e.target.value)}
@@ -170,52 +174,141 @@ export function EditRegionModal({ region, onSave, onClose }: EditRegionModalProp
           />
         </div>
 
+        {/* Delete confirmation strip */}
+        {!isNew && onDelete && confirmDelete && (
+          <div style={{
+            backgroundColor: "#2D0707",
+            border: "1px solid #EF4444",
+            borderRadius: "8px",
+            padding: "12px 16px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: "12px",
+          }}>
+            <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "13px", color: "#FCA5A5" }}>
+              Delete this region permanently?
+            </span>
+            <div style={{ display: "flex", gap: "8px", flexShrink: 0 }}>
+              <button
+                onClick={() => setConfirmDelete(false)}
+                style={{
+                  background: "none",
+                  border: "1px solid #475569",
+                  borderRadius: "6px",
+                  padding: "5px 12px",
+                  color: "#94A3B8",
+                  fontFamily: "'DM Sans', sans-serif",
+                  fontSize: "12px",
+                  cursor: "pointer",
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={onDelete}
+                style={{
+                  backgroundColor: "#EF4444",
+                  border: "none",
+                  borderRadius: "6px",
+                  padding: "5px 12px",
+                  color: "#fff",
+                  fontFamily: "'DM Sans', sans-serif",
+                  fontWeight: 600,
+                  fontSize: "12px",
+                  cursor: "pointer",
+                }}
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Actions */}
-        <div style={{ display: "flex", gap: "12px", justifyContent: "flex-end", marginTop: "4px" }}>
-          <button
-            onClick={onClose}
-            style={{
-              background: "none",
-              border: "1px solid #2A2E42",
-              borderRadius: "8px",
-              padding: "10px 20px",
-              color: "#94A3B8",
-              fontFamily: "'DM Sans', sans-serif",
-              fontWeight: 500,
-              fontSize: "14px",
-              cursor: "pointer",
-              transition: "border-color 0.2s, color 0.2s",
-            }}
-            onMouseEnter={e => {
-              (e.currentTarget as HTMLButtonElement).style.borderColor = "#475569";
-              (e.currentTarget as HTMLButtonElement).style.color = "#F1F5F9";
-            }}
-            onMouseLeave={e => {
-              (e.currentTarget as HTMLButtonElement).style.borderColor = "#2A2E42";
-              (e.currentTarget as HTMLButtonElement).style.color = "#94A3B8";
-            }}
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleSave}
-            style={{
-              backgroundColor: "#6366F1",
-              border: "none",
-              borderRadius: "8px",
-              padding: "10px 20px",
-              color: "#fff",
-              fontFamily: "'DM Sans', sans-serif",
-              fontWeight: 600,
-              fontSize: "14px",
-              cursor: "pointer",
-              transition: "background-color 0.2s",
-            }}
-            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = "#4F46E5"; }}
-            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = "#6366F1"; }}
-          >
-            Save Changes
-          </button>
+        <div style={{ display: "flex", gap: "8px", justifyContent: "space-between", marginTop: "4px" }}>
+          {/* Delete button — only for existing regions */}
+          {!isNew && onDelete && !confirmDelete ? (
+            <button
+              onClick={() => setConfirmDelete(true)}
+              style={{
+                background: "none",
+                border: "1px solid #334155",
+                borderRadius: "8px",
+                padding: "10px 14px",
+                color: "#475569",
+                fontFamily: "'DM Sans', sans-serif",
+                fontSize: "13px",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                gap: "6px",
+                transition: "all 0.2s",
+              }}
+              onMouseEnter={e => {
+                const b = e.currentTarget as HTMLButtonElement;
+                b.style.borderColor = "#EF4444";
+                b.style.color = "#EF4444";
+              }}
+              onMouseLeave={e => {
+                const b = e.currentTarget as HTMLButtonElement;
+                b.style.borderColor = "#334155";
+                b.style.color = "#475569";
+              }}
+            >
+              <Trash2 size={14} />
+              Delete
+            </button>
+          ) : (
+            <span />
+          )}
+
+          <div style={{ display: "flex", gap: "10px" }}>
+            <button
+              onClick={onClose}
+              style={{
+                background: "none",
+                border: "1px solid #2A2E42",
+                borderRadius: "8px",
+                padding: "10px 20px",
+                color: "#94A3B8",
+                fontFamily: "'DM Sans', sans-serif",
+                fontWeight: 500,
+                fontSize: "14px",
+                cursor: "pointer",
+                transition: "border-color 0.2s, color 0.2s",
+              }}
+              onMouseEnter={e => {
+                (e.currentTarget as HTMLButtonElement).style.borderColor = "#475569";
+                (e.currentTarget as HTMLButtonElement).style.color = "#F1F5F9";
+              }}
+              onMouseLeave={e => {
+                (e.currentTarget as HTMLButtonElement).style.borderColor = "#2A2E42";
+                (e.currentTarget as HTMLButtonElement).style.color = "#94A3B8";
+              }}
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleSave}
+              style={{
+                backgroundColor: "#6366F1",
+                border: "none",
+                borderRadius: "8px",
+                padding: "10px 20px",
+                color: "#fff",
+                fontFamily: "'DM Sans', sans-serif",
+                fontWeight: 600,
+                fontSize: "14px",
+                cursor: "pointer",
+                transition: "background-color 0.2s",
+              }}
+              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = "#4F46E5"; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = "#6366F1"; }}
+            >
+              {isNew ? "Add Region" : "Save Changes"}
+            </button>
+          </div>
         </div>
       </div>
     </div>

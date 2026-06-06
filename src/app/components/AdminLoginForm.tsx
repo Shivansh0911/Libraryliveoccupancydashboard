@@ -2,28 +2,27 @@ import { useState } from "react";
 import { Lock, User, Eye, EyeOff } from "lucide-react";
 
 interface AdminLoginFormProps {
-  onLogin: (username: string) => void;
+  onLoginAttempt: (username: string, password: string) => Promise<void>;
 }
 
-export function AdminLoginForm({ onLogin }: AdminLoginFormProps) {
+export function AdminLoginForm({ onLoginAttempt }: AdminLoginFormProps) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError("");
-    setTimeout(() => {
-      if (username === "admin" && password === "bits2024") {
-        onLogin(username);
-      } else {
-        setError("Invalid credentials");
-      }
+    try {
+      await onLoginAttempt(username, password);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Invalid credentials");
+    } finally {
       setLoading(false);
-    }, 600);
+    }
   };
 
   const inputBase: React.CSSProperties = {
@@ -60,7 +59,6 @@ export function AdminLoginForm({ onLogin }: AdminLoginFormProps) {
       gap: "16px",
       border: "1px solid #2A2E42",
     }}>
-      {/* Title */}
       <div style={{ marginBottom: "4px" }}>
         <h2 style={{
           fontFamily: "'DM Sans', sans-serif",
@@ -137,13 +135,6 @@ export function AdminLoginForm({ onLogin }: AdminLoginFormProps) {
         {error && (
           <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "13px", color: "#EF4444" }}>
             {error}
-          </span>
-        )}
-
-        {/* Hint */}
-        {!error && (
-          <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: "11px", color: "#2A2E42" }}>
-            admin / bits2024
           </span>
         )}
 

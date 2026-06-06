@@ -2,6 +2,7 @@ import { Settings, LogOut, User } from "lucide-react";
 
 interface StudentNavProps {
   lastUpdated: string;
+  connected?: boolean;
   onAdminClick: () => void;
 }
 
@@ -11,7 +12,7 @@ interface AdminNavProps {
   onStudentView: () => void;
 }
 
-export function StudentTopNav({ lastUpdated, onAdminClick }: StudentNavProps) {
+export function StudentTopNav({ lastUpdated, connected = false, onAdminClick }: StudentNavProps) {
   return (
     <div style={{
       height: "56px",
@@ -29,10 +30,10 @@ export function StudentTopNav({ lastUpdated, onAdminClick }: StudentNavProps) {
           width: "8px",
           height: "8px",
           borderRadius: "50%",
-          backgroundColor: "#22C55E",
+          backgroundColor: connected ? "#22C55E" : "#475569",
           display: "inline-block",
           flexShrink: 0,
-          animation: "pulse-dot 2s infinite",
+          animation: connected ? "pulse-dot 2s infinite" : "none",
         }} />
         <span style={{
           fontFamily: "'DM Sans', sans-serif",

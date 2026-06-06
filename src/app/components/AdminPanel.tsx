@@ -2,10 +2,12 @@ import { useState, useEffect } from "react";
 import { Pencil, Plus, Wifi, WifiOff } from "lucide-react";
 import { Region } from "./types";
 import { EditRegionModal } from "./EditRegionModal";
+import { createRegion, updateRegion, deleteRegion } from "../../api";
 
 interface AdminPanelProps {
   regions: Region[];
   onUpdateRegions: (regions: Region[]) => void;
+  token: string | null;
 }
 
 function CamDot({ online }: { online: boolean }) {
@@ -90,7 +92,8 @@ function AdminTableRow({ region, onEdit, isLast }: { region: Region; onEdit: () 
   );
 }
 
-export function AdminPanel({ regions, onUpdateRegions }: AdminPanelProps) {
+export function AdminPanel({ regions, onUpdateRegions, token }: AdminPanelProps) {
+  // editingRegion: null = closed, region with id "new-*" = creating, region with real id = editing
   const [editingRegion, setEditingRegion] = useState<Region | null>(null);
   const [pingAges, setPingAges] = useState<Record<string, number>>(() =>
     Object.fromEntries(regions.map((r, i) => [r.id, i + 1]))
@@ -112,25 +115,68 @@ export function AdminPanel({ regions, onUpdateRegions }: AdminPanelProps) {
     return () => clearInterval(id);
   }, [regions]);
 
-  const handleSave = (updated: Region) => {
-    onUpdateRegions(regions.map(r => r.id === updated.id ? updated : r));
+  const handleSave = async (updated: Region) => {
+    const isNew = updated.id.startsWith("new-");
+    const apiData = {
+      name: updated.name,
+      camera_id: updated.camId,
+      capacity: updated.capacity,
+      description: updated.locationNotes || undefined,
+    };
+
+    if (token && !token.startsWith("demo-")) {
+      try {
+        if (isNew) {
+          await createRegion(apiData, token);
+        } else {
+          await updateRegion(parseInt(updated.id, 10), apiData, token);
+        }
+        // WebSocket broadcast will update state automatically
+      } catch {
+        // API failed — update local state as fallback
+        if (isNew) {
+          onUpdateRegions([...regions, { ...updated, id: `r${Date.now()}` }]);
+        } else {
+          onUpdateRegions(regions.map(r => r.id === updated.id ? updated : r));
+        }
+      }
+    } else {
+      // Demo mode — update local state only
+      if (isNew) {
+        onUpdateRegions([...regions, { ...updated, id: `r${Date.now()}` }]);
+      } else {
+        onUpdateRegions(regions.map(r => r.id === updated.id ? updated : r));
+      }
+    }
+    setEditingRegion(null);
+  };
+
+  const handleDelete = async (regionId: string) => {
+    if (token && !token.startsWith("demo-")) {
+      try {
+        await deleteRegion(parseInt(regionId, 10), token);
+        // WebSocket broadcast will update state
+      } catch {
+        onUpdateRegions(regions.filter(r => r.id !== regionId));
+      }
+    } else {
+      onUpdateRegions(regions.filter(r => r.id !== regionId));
+    }
     setEditingRegion(null);
   };
 
   const handleAddRegion = () => {
-    const newRegion: Region = {
-      id: `region-${Date.now()}`,
-      name: "New Region",
+    setEditingRegion({
+      id: `new-${Date.now()}`,
+      name: "",
       count: 0,
       capacity: 50,
-      status: "free",
-      camId: `cam_0${regions.length + 1}`,
+      status: "offline",
+      camId: "",
       camOnline: false,
-      lastUpdated: "just now",
+      lastUpdated: "",
       locationNotes: "",
-    };
-    onUpdateRegions([...regions, newRegion]);
-    setEditingRegion(newRegion);
+    });
   };
 
   return (
@@ -232,7 +278,6 @@ export function AdminPanel({ regions, onUpdateRegions }: AdminPanelProps) {
                   gap: "12px",
                 }}
               >
-                {/* Icon + cam ID */}
                 <div style={{ display: "flex", alignItems: "center", gap: "8px", width: "120px", flexShrink: 0 }}>
                   {region.camOnline
                     ? <Wifi size={15} color="#22C55E" />
@@ -242,16 +287,10 @@ export function AdminPanel({ regions, onUpdateRegions }: AdminPanelProps) {
                     {region.camId}
                   </span>
                 </div>
-
-                {/* Region name */}
                 <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "13px", color: "#94A3B8", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                   {region.name}
                 </span>
-
-                {/* Status dot */}
                 <CamDot online={region.camOnline} />
-
-                {/* Ping / last-seen */}
                 <span style={{
                   fontFamily: "'IBM Plex Mono', monospace",
                   fontSize: "11px",
@@ -262,7 +301,7 @@ export function AdminPanel({ regions, onUpdateRegions }: AdminPanelProps) {
                 }}>
                   {region.camOnline
                     ? `last ping ${age}s ago`
-                    : "Disconnected · last seen 4m ago"}
+                    : `Disconnected · last seen ${region.lastUpdated}`}
                 </span>
               </div>
             );
@@ -273,7 +312,9 @@ export function AdminPanel({ regions, onUpdateRegions }: AdminPanelProps) {
       {editingRegion && (
         <EditRegionModal
           region={editingRegion}
+          isNew={editingRegion.id.startsWith("new-")}
           onSave={handleSave}
+          onDelete={!editingRegion.id.startsWith("new-") ? () => handleDelete(editingRegion.id) : undefined}
           onClose={() => setEditingRegion(null)}
         />
       )}

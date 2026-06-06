@@ -1,11 +1,13 @@
 /* MARKER-MAKE-KIT-INVOKED */
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Region } from "./components/types";
 import { RegionCard } from "./components/RegionCard";
 import { StudentTopNav, AdminTopNav } from "./components/TopNavBar";
 import { SmartSuggestionStrip } from "./components/SmartSuggestionStrip";
 import { AdminLoginForm } from "./components/AdminLoginForm";
 import { AdminPanel } from "./components/AdminPanel";
+import { useRealtimeCount, RegionOut } from "../hooks/useRealtimeCount";
+import { useAuth } from "../hooks/useAuth";
 
 type View = "dashboard" | "login" | "admin";
 
@@ -67,6 +69,28 @@ function fmtFull(d: Date) {
   return d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
 }
 
+function formatRelativeTime(isoString: string): string {
+  const diff = Math.floor((Date.now() - new Date(isoString).getTime()) / 1000);
+  if (diff < 0) return "just now";
+  if (diff < 60) return `${diff}s ago`;
+  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+  return `${Math.floor(diff / 3600)}h ago`;
+}
+
+function fromRegionOut(r: RegionOut): Region {
+  return {
+    id: String(r.id),
+    name: r.name,
+    count: r.current_count,
+    capacity: r.capacity,
+    status: r.status,
+    camId: r.camera_id,
+    camOnline: r.camera_online,
+    lastUpdated: r.last_updated ? formatRelativeTime(r.last_updated) : "never",
+    locationNotes: r.description ?? "",
+  };
+}
+
 function useIsMobile() {
   const [mobile, setMobile] = useState(() => window.innerWidth < 640);
   useEffect(() => {
@@ -78,18 +102,33 @@ function useIsMobile() {
 }
 
 export default function App() {
+  const { regions: wsRegions, connected } = useRealtimeCount();
+  const auth = useAuth();
   const [view, setView] = useState<View>("dashboard");
-  const [adminUser, setAdminUser] = useState<string | null>(null);
-  const [regions, setRegions] = useState<Region[]>(SEED);
+  const [mockRegions, setMockRegions] = useState<Region[]>(SEED);
+  const [liveRegions, setLiveRegions] = useState<Region[]>([]);
   const [refreshTime, setRefreshTime] = useState(fmtFull(new Date()));
   const [secsSince, setSecsSince] = useState(0);
   const [offlineMode, setOfflineMode] = useState(false);
   const isMobile = useIsMobile();
-  const tickRef = useRef(0);
 
-  // Live simulation every 5s
+  // Refresh live regions from WebSocket every second (keeps "Xs ago" timestamps fresh)
+  useEffect(() => {
+    if (!connected || wsRegions.length === 0) {
+      setLiveRegions([]);
+      return;
+    }
+    setLiveRegions(wsRegions.map(fromRegionOut));
+    setRefreshTime(fmtFull(new Date()));
+    setSecsSince(0);
+    const id = setInterval(() => setLiveRegions(wsRegions.map(fromRegionOut)), 1000);
+    return () => clearInterval(id);
+  }, [connected, wsRegions]);
+
+  // Mock simulation — only runs when backend is offline
   const simulate = useCallback(() => {
-    setRegions(prev =>
+    if (connected) return;
+    setMockRegions(prev =>
       prev.map(r => {
         if (offlineMode && r.id === "r4") return r;
         const delta = Math.floor(Math.random() * 5) - 2;
@@ -99,27 +138,39 @@ export default function App() {
     );
     setRefreshTime(fmtFull(new Date()));
     setSecsSince(0);
-  }, [offlineMode]);
+  }, [connected, offlineMode]);
 
   useEffect(() => {
-    const sim = setInterval(simulate, 5000);
+    const sim = connected ? undefined : setInterval(simulate, 5000);
     const counter = setInterval(() => setSecsSince(s => s + 1), 1000);
-    return () => { clearInterval(sim); clearInterval(counter); };
-  }, [simulate]);
+    return () => {
+      if (sim) clearInterval(sim);
+      clearInterval(counter);
+    };
+  }, [simulate, connected]);
 
-  // "Xs ago" label for the nav
   const agoLabel = secsSince < 60
     ? `${secsSince}s ago`
     : `${Math.floor(secsSince / 60)}m ago`;
 
-  const displayRegions = regions.map(r =>
+  // Use real data when connected, fall back to mock simulation
+  const baseRegions = connected && liveRegions.length > 0 ? liveRegions : mockRegions;
+
+  const displayRegions = baseRegions.map(r =>
     offlineMode && r.id === "r4"
       ? { ...r, status: "offline" as const, camOnline: false, lastUpdated: "8:47 AM" }
       : r
   );
 
-  const handleLogin = (username: string) => { setAdminUser(username); setView("admin"); };
-  const handleLogout = () => { setAdminUser(null); setView("dashboard"); };
+  const handleLoginAttempt = useCallback(async (u: string, p: string) => {
+    await auth.login(u, p);
+    setView("admin");
+  }, [auth]);
+
+  const handleLogout = useCallback(() => {
+    auth.logout();
+    setView("dashboard");
+  }, [auth]);
 
   return (
     <div style={{
@@ -161,7 +212,6 @@ export default function App() {
           overflow: "auto",
           animation: "fadeUp 0.25s ease",
         }}>
-          {/* Wordmark */}
           <div style={{ textAlign: "center", marginBottom: "4px" }}>
             <div style={{ fontFamily: "'DM Sans', sans-serif", fontWeight: 700, fontSize: "24px", color: "#F1F5F9", marginBottom: "6px" }}>
               BITS Hyderabad
@@ -169,11 +219,10 @@ export default function App() {
             <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: "11px", color: "#475569", letterSpacing: "0.14em", textTransform: "uppercase" }}>
               Library Management System
             </div>
-            {/* Divider */}
             <div style={{ margin: "16px auto 0", width: "40px", height: "1px", backgroundColor: "#2A2E42" }} />
           </div>
 
-          <AdminLoginForm onLogin={handleLogin} />
+          <AdminLoginForm onLoginAttempt={handleLoginAttempt} />
 
           <button
             onClick={() => setView("dashboard")}
@@ -195,22 +244,32 @@ export default function App() {
       )}
 
       {/* ── ADMIN PANEL ─────────────────────────────────── */}
-      {view === "admin" && adminUser && (
+      {view === "admin" && auth.isAdmin && (
         <>
-          <AdminTopNav username={adminUser} onLogout={handleLogout} onStudentView={() => setView("dashboard")} />
-          <AdminPanel regions={displayRegions} onUpdateRegions={setRegions} />
+          <AdminTopNav
+            username={auth.username ?? "admin"}
+            onLogout={handleLogout}
+            onStudentView={() => setView("dashboard")}
+          />
+          <AdminPanel
+            regions={displayRegions}
+            onUpdateRegions={setMockRegions}
+            token={auth.token}
+          />
         </>
       )}
 
       {/* ── STUDENT DASHBOARD ───────────────────────────── */}
       {view === "dashboard" && (
         <>
-          <StudentTopNav lastUpdated={agoLabel} onAdminClick={() => setView("login")} />
+          <StudentTopNav
+            lastUpdated={agoLabel}
+            connected={connected}
+            onAdminClick={() => setView("login")}
+          />
 
-          {/* Scrollable content area */}
           <div style={{ flex: 1, overflow: "auto", padding: isMobile ? "20px 16px" : "clamp(24px, 4vw, 48px)" }}>
 
-            {/* Page heading */}
             <div style={{
               marginBottom: "28px",
               display: "flex",
@@ -242,62 +301,66 @@ export default function App() {
                 }}>
                   <span>{displayRegions.length} regions</span>
                   <span style={{ color: "#2A2E42" }}>·</span>
-                  {offlineMode && <span style={{ color: "#EF4444" }}>1 camera offline</span>}
+                  {connected
+                    ? <span style={{ color: "#22C55E" }}>Live</span>
+                    : <span style={{ color: "#475569" }}>Demo mode</span>
+                  }
                   {offlineMode && <span style={{ color: "#2A2E42" }}>·</span>}
+                  {offlineMode && <span style={{ color: "#EF4444" }}>1 camera offline</span>}
+                  <span style={{ color: "#2A2E42" }}>·</span>
                   <span>Refreshed {refreshTime}</span>
                 </p>
               </div>
 
-              {/* Offline toggle */}
-              <button
-                onClick={() => setOfflineMode(p => !p)}
-                style={{
-                  backgroundColor: offlineMode ? "#2D0707" : "transparent",
-                  border: `1px solid ${offlineMode ? "#EF4444" : "#2A2E42"}`,
-                  borderRadius: "8px",
-                  padding: "6px 12px",
-                  color: offlineMode ? "#EF4444" : "#334155",
-                  fontFamily: "'IBM Plex Mono', monospace",
-                  fontSize: "11px",
-                  cursor: "pointer",
-                  transition: "all 0.2s",
-                  whiteSpace: "nowrap",
-                  alignSelf: "flex-start",
-                  letterSpacing: "0.03em",
-                }}
-                onMouseEnter={e => {
-                  if (!offlineMode) {
-                    (e.currentTarget as HTMLButtonElement).style.borderColor = "#475569";
-                    (e.currentTarget as HTMLButtonElement).style.color = "#94A3B8";
-                  }
-                }}
-                onMouseLeave={e => {
-                  if (!offlineMode) {
-                    (e.currentTarget as HTMLButtonElement).style.borderColor = "#2A2E42";
-                    (e.currentTarget as HTMLButtonElement).style.color = "#334155";
-                  }
-                }}
-              >
-                {offlineMode ? "● cam_04 offline · restore" : "⚡ Simulate cam_04 offline"}
-              </button>
+              {/* Offline demo toggle — only shown when not on live backend */}
+              {!connected && (
+                <button
+                  onClick={() => setOfflineMode(p => !p)}
+                  style={{
+                    backgroundColor: offlineMode ? "#2D0707" : "transparent",
+                    border: `1px solid ${offlineMode ? "#EF4444" : "#2A2E42"}`,
+                    borderRadius: "8px",
+                    padding: "6px 12px",
+                    color: offlineMode ? "#EF4444" : "#334155",
+                    fontFamily: "'IBM Plex Mono', monospace",
+                    fontSize: "11px",
+                    cursor: "pointer",
+                    transition: "all 0.2s",
+                    whiteSpace: "nowrap",
+                    alignSelf: "flex-start",
+                    letterSpacing: "0.03em",
+                  }}
+                  onMouseEnter={e => {
+                    if (!offlineMode) {
+                      (e.currentTarget as HTMLButtonElement).style.borderColor = "#475569";
+                      (e.currentTarget as HTMLButtonElement).style.color = "#94A3B8";
+                    }
+                  }}
+                  onMouseLeave={e => {
+                    if (!offlineMode) {
+                      (e.currentTarget as HTMLButtonElement).style.borderColor = "#2A2E42";
+                      (e.currentTarget as HTMLButtonElement).style.color = "#334155";
+                    }
+                  }}
+                >
+                  {offlineMode ? "● cam_04 offline · restore" : "⚡ Simulate cam_04 offline"}
+                </button>
+              )}
             </div>
 
             {/* Cards */}
             {isMobile ? (
-              /* Mobile: single column, full-width */
               <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
                 {displayRegions.map((r, i) => (
                   <div key={r.id} style={{ animation: `fadeUp 0.3s ease ${i * 0.06}s both` }}>
                     <RegionCard region={r} mobile />
                   </div>
                 ))}
-                {/* Suggestion strip inside scroll on mobile */}
                 <div style={{ marginTop: "8px" }}>
                   <SmartSuggestionStrip regions={displayRegions} inline />
                 </div>
               </div>
             ) : (
-              /* Desktop: 2×2 grid, max 900px */
               <div style={{
                 display: "grid",
                 gridTemplateColumns: "repeat(2, minmax(280px, 1fr))",
@@ -313,7 +376,6 @@ export default function App() {
             )}
           </div>
 
-          {/* Sticky suggestion strip — desktop only */}
           {!isMobile && <SmartSuggestionStrip regions={displayRegions} />}
         </>
       )}
