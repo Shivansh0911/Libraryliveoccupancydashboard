@@ -1,1 +1,11 @@
-# repo-template
+
+  # Library Live Occupancy Dashboard
+
+  This is a code bundle for Library Live Occupancy Dashboard. The original project is available at https://www.figma.com/design/gg0FpCBfeEwfomM3zJPEaY/Library-Live-Occupancy-Dashboard.
+
+  ## Running the code
+
+  Run `npm i` to install the dependencies.
+
+  Run `npm run dev` to start the development server.
+  
