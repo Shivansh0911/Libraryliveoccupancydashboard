@@ -70,7 +70,10 @@ function fmtFull(d: Date) {
 }
 
 function formatRelativeTime(isoString: string): string {
-  const diff = Math.floor((Date.now() - new Date(isoString).getTime()) / 1000);
+  // Backend returns naive UTC datetimes (no Z suffix) — force UTC so JS doesn't
+  // misread them as local time (IST = UTC+5:30 causes "5h ago" bug)
+  const utc = isoString.endsWith("Z") || isoString.includes("+") ? isoString : isoString + "Z";
+  const diff = Math.floor((Date.now() - new Date(utc).getTime()) / 1000);
   if (diff < 0) return "just now";
   if (diff < 60) return `${diff}s ago`;
   if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
