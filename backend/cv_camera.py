@@ -16,7 +16,7 @@ Camera source can be:
 
 ━━━ HOW THIS CONNECTS TO BACKEND ━━━
 After each inference it POSTs:
-    POST http://localhost:8000/count/update
+    POST https://library-backendd-production.up.railway.app/count/update
     { "camera_id": "cam_01", "count": 14 }
 
 camera_id must match what's configured in Admin Panel.
@@ -31,7 +31,7 @@ from datetime import datetime, timezone
 
 import httpx
 
-BACKEND_URL = "http://localhost:8000"
+BACKEND_URL = "https://library-backendd-production.up.railway.app"
 
 # ─── Configure your cameras here ───────────────────────────────────────────
 # source: webcam index (0,1,2), RTSP URL, or "test" for simulation

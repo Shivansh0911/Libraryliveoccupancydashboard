@@ -6,7 +6,7 @@ Mock camera feed simulator — run alongside the backend for development.
 ━━━ HOW REAL YOLO CONNECTS ━━━
 After each frame inference, POST to /count/update:
 
-    POST http://localhost:8000/count/update
+    POST https://library-backendd-production.up.railway.app/count/update
     { "camera_id": "cam_01", "count": 14 }
 
 camera_id must match a Region's camera_id in the DB (configured in Admin Panel).
@@ -18,7 +18,7 @@ import random
 import httpx
 from datetime import datetime, timezone
 
-BASE_URL = "http://localhost:8000"
+BASE_URL = "https://library-backendd-production.up.railway.app"
 MOCK_CAMERAS = {
     "cam_01": {"range": (0, 40),  "drift": 2},
     "cam_02": {"range": (10, 80), "drift": 5},
