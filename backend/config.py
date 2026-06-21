@@ -9,7 +9,7 @@ class Settings(BaseSettings):
     ADMIN_USERNAME: str = "admin"
     ADMIN_PASSWORD: str = "bits2024"
     DATABASE_URL: str = "sqlite+aiosqlite:///./occupancy.db"
-    CAMERA_OFFLINE_THRESHOLD_SECONDS: int = 30
+    CAMERA_OFFLINE_THRESHOLD_SECONDS: int = 12
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 

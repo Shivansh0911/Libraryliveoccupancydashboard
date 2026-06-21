@@ -13,9 +13,9 @@ from routes.admin import router as admin_router
 
 
 async def offline_heartbeat():
-    """Broadcast dashboard state every 10s so offline cameras show immediately."""
+    """Broadcast dashboard state every 5s so offline cameras show within ~17s."""
     while True:
-        await asyncio.sleep(10)
+        await asyncio.sleep(5)
         try:
             async with AsyncSessionLocal() as db:
                 state = await build_dashboard_state(db)
