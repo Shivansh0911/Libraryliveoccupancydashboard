@@ -1,3 +1,4 @@
+import asyncio
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Depends
 from fastapi.middleware.cors import CORSMiddleware
@@ -11,12 +12,26 @@ from routes.counts import router as counts_router
 from routes.admin import router as admin_router
 
 
+async def offline_heartbeat():
+    """Broadcast dashboard state every 10s so offline cameras show immediately."""
+    while True:
+        await asyncio.sleep(10)
+        try:
+            async with AsyncSessionLocal() as db:
+                state = await build_dashboard_state(db)
+                await manager.broadcast(state.model_dump_json())
+        except Exception:
+            pass
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await init_db()
     async with AsyncSessionLocal() as session:
         await seed_if_empty(session)
+    task = asyncio.create_task(offline_heartbeat())
     yield
+    task.cancel()
 
 
 app = FastAPI(title="Campus Library Occupancy Dashboard", lifespan=lifespan)

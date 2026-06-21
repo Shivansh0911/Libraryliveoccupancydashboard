@@ -44,7 +44,7 @@ CAMERAS = {
 
 INFERENCE_INTERVAL = 3   # seconds between each count POST
 SHOW_PREVIEW = False     # set True to open a CV window (requires display)
-MODEL_NAME = "yolov8n.pt"  # nano model — fast, ~6MB download on first run
+MODEL_NAME = "yolov8s.pt"  # small model — better overlap detection than nano, ~22MB
 # ───────────────────────────────────────────────────────────────────────────
 
 
