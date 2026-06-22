@@ -164,26 +164,6 @@ Content-Type: application/json
 
 ---
 
-## Environment Variables
-
-**Backend** (`backend/.env`):
-```env
-SECRET_KEY=<random 64 char string>
-ALGORITHM=HS256
-ACCESS_TOKEN_EXPIRE_MINUTES=480
-ADMIN_USERNAME=admin
-ADMIN_PASSWORD=<your password>
-DATABASE_URL=sqlite+aiosqlite:///./occupancy.db
-CAMERA_OFFLINE_THRESHOLD_SECONDS=12
-```
-
-**Frontend** (Netlify env vars or `.env`):
-```env
-VITE_API_BASE_URL=http://localhost:8000
-VITE_WS_URL=ws://localhost:8000
-```
-
----
 
 ## Status Logic
 
