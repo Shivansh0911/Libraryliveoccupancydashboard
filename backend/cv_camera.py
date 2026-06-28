@@ -89,10 +89,10 @@ def count_people_and_reserved(model, frame) -> tuple[int, int]:
 
     COCO classes used:
         0  = person
-        63 = laptop
-        73 = book
+        63 = laptop  (books excluded — too many false positives from shelves)
     """
-    results = model(frame, verbose=False, classes=[0, 63, 73])
+    # class 63 = laptop only — books excluded (false positives from shelves)
+    results = model(frame, verbose=False, classes=[0, 63])
     boxes = results[0].boxes
 
     person_boxes = []
