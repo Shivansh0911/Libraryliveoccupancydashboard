@@ -8,6 +8,7 @@ export interface RegionOut {
   camera_id: string;
   capacity: number;
   current_count: number;
+  reserved_count: number;
   occupancy_pct: number;
   status: "free" | "moderate" | "full" | "offline";
   camera_online: boolean;

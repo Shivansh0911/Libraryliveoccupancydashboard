@@ -27,6 +27,7 @@ class CountLog(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     region_id: Mapped[int] = mapped_column(ForeignKey("regions.id"))
     count: Mapped[int]
+    reserved_count: Mapped[int] = mapped_column(default=0)
     received_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
 
     region: Mapped["Region"] = relationship(back_populates="count_logs")

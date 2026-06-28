@@ -43,6 +43,7 @@ async def build_dashboard_state(db: AsyncSession) -> DashboardBroadcast:
         latest = log_result.scalar_one_or_none()
 
         count = latest.count if latest else 0
+        reserved = latest.reserved_count if latest else 0
         last_updated = latest.received_at if latest else None
         status = compute_status(
             count, region.capacity, last_updated, settings.CAMERA_OFFLINE_THRESHOLD_SECONDS
@@ -56,6 +57,7 @@ async def build_dashboard_state(db: AsyncSession) -> DashboardBroadcast:
                 camera_id=region.camera_id,
                 capacity=region.capacity,
                 current_count=count,
+                reserved_count=reserved,
                 occupancy_pct=occupancy_pct,
                 status=status,
                 camera_online=(status != "offline"),

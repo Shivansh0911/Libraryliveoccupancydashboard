@@ -64,13 +64,56 @@ def load_yolo():
         sys.exit(1)
 
 
-def count_people(model, frame) -> int:
-    """Run inference on one frame, return number of persons detected."""
-    results = model(frame, verbose=False, classes=[0])  # class 0 = person (COCO)
-    return len(results[0].boxes)
+def is_near_person(obj_box: list, person_boxes: list, proximity: float = 0.18) -> bool:
+    """Check if an object bounding box is close to any detected person.
+    proximity = fraction of frame diagonal used as distance threshold.
+    """
+    ox = (obj_box[0] + obj_box[2]) / 2
+    oy = (obj_box[1] + obj_box[3]) / 2
+    for pb in person_boxes:
+        px = (pb[0] + pb[2]) / 2
+        py = (pb[1] + pb[3]) / 2
+        dist = ((ox - px) ** 2 + (oy - py) ** 2) ** 0.5
+        # Use person box diagonal as scale reference
+        p_diag = ((pb[2] - pb[0]) ** 2 + (pb[3] - pb[1]) ** 2) ** 0.5
+        if dist < p_diag * (1 + proximity):
+            return True
+    return False
 
 
-async def post_count(client: httpx.AsyncClient, camera_id: str, count: int) -> bool:
+def count_people_and_reserved(model, frame) -> tuple[int, int]:
+    """Detect people and reserved seats separately.
+
+    Returns (people_count, reserved_count) where reserved = laptops/books
+    that are NOT near any detected person (i.e. seat is held but person absent).
+
+    COCO classes used:
+        0  = person
+        63 = laptop
+        73 = book
+    """
+    results = model(frame, verbose=False, classes=[0, 63, 73])
+    boxes = results[0].boxes
+
+    person_boxes = []
+    object_boxes = []
+
+    for box in boxes:
+        cls = int(box.cls[0])
+        coords = box.xyxy[0].tolist()
+        if cls == 0:
+            person_boxes.append(coords)
+        else:
+            object_boxes.append(coords)
+
+    reserved = sum(
+        1 for obj in object_boxes if not is_near_person(obj, person_boxes)
+    )
+
+    return len(person_boxes), reserved
+
+
+async def post_count(client: httpx.AsyncClient, camera_id: str, count: int, reserved: int = 0) -> bool:
     """POST count to backend. Returns True on success."""
     try:
         r = await client.post(
@@ -78,6 +121,7 @@ async def post_count(client: httpx.AsyncClient, camera_id: str, count: int) -> b
             json={
                 "camera_id": camera_id,
                 "count": count,
+                "reserved": reserved,
                 "timestamp": datetime.now(timezone.utc).isoformat(),
             },
             timeout=5.0,
@@ -111,11 +155,11 @@ async def run_camera(model, camera_id: str, source, client: httpx.AsyncClient):
                     print(f"[{camera_id}] Frame read failed — camera disconnected, reconnecting ...")
                     break
 
-                count = count_people(model, frame)
-                ok = await post_count(client, camera_id, count)
+                count, reserved = count_people_and_reserved(model, frame)
+                ok = await post_count(client, camera_id, count, reserved)
                 status = "✓" if ok else "✗"
                 ts = datetime.now().strftime("%H:%M:%S")
-                print(f"[{camera_id}] {ts}  count={count:>3}  {status}")
+                print(f"[{camera_id}] {ts}  people={count:>3}  reserved={reserved:>2}  {status}")
 
                 if SHOW_PREVIEW:
                     cv2.putText(frame, f"{camera_id}: {count} people", (20, 40),

@@ -4,6 +4,7 @@ export interface Region {
   id: string;
   name: string;
   count: number;
+  reserved: number;
   capacity: number;
   status: RegionStatus;
   camId: string;

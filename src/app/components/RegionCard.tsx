@@ -123,11 +123,26 @@ export function RegionCard({ region, mobile = false }: RegionCardProps) {
             <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: "11px", color: "#475569" }}>
               {isOffline ? `Camera offline · Last known: ${region.lastUpdated}` : `Updated ${region.lastUpdated}`}
             </span>
-            {!isOffline && (
-              <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: "11px", color: borderColors[region.status] }}>
-                {fillPct}%
-              </span>
-            )}
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              {!isOffline && region.reserved > 0 && (
+                <span style={{
+                  fontFamily: "'IBM Plex Mono', monospace",
+                  fontSize: "10px",
+                  color: "#F59E0B",
+                  backgroundColor: "#2D1B00",
+                  padding: "2px 6px",
+                  borderRadius: "4px",
+                  border: "1px solid #78350F",
+                }}>
+                  {region.reserved} reserved
+                </span>
+              )}
+              {!isOffline && (
+                <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: "11px", color: borderColors[region.status] }}>
+                  {fillPct}%
+                </span>
+              )}
+            </div>
           </div>
         </>
       )}

@@ -24,7 +24,7 @@ async def update_count(
     if not region:
         raise HTTPException(404, f"No active region for camera_id='{payload.camera_id}'")
 
-    db.add(CountLog(region_id=region.id, count=payload.count))
+    db.add(CountLog(region_id=region.id, count=payload.count, reserved_count=payload.reserved))
     await db.commit()
 
     state = await build_dashboard_state(db)

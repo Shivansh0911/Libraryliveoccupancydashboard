@@ -20,6 +20,7 @@ class RegionUpdate(BaseModel):
 class CountUpdatePayload(BaseModel):
     camera_id: str
     count: int
+    reserved: int = 0
     timestamp: Optional[datetime] = None
 
 
@@ -29,6 +30,7 @@ class RegionOut(BaseModel):
     camera_id: str
     capacity: int
     current_count: int
+    reserved_count: int
     occupancy_pct: float
     status: Literal["free", "moderate", "full", "offline"]
     camera_online: bool
