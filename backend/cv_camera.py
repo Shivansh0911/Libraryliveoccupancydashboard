@@ -162,8 +162,8 @@ async def run_camera(model, camera_id: str, source, client: httpx.AsyncClient):
                 print(f"[{camera_id}] {ts}  people={count:>3}  reserved={reserved:>2}  {status}")
 
                 if SHOW_PREVIEW:
-                    cv2.putText(frame, f"{camera_id}: {count} people", (20, 40),
-                                cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+                    cv2.putText(frame, f"{camera_id}: {count} people  {reserved} reserved", (20, 40),
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
                     cv2.imshow(f"Library CV — {camera_id}", frame)
                     if cv2.waitKey(1) & 0xFF == ord("q"):
                         return
