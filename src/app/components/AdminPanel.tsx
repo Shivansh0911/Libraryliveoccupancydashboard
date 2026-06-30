@@ -170,6 +170,7 @@ export function AdminPanel({ regions, onUpdateRegions, token }: AdminPanelProps)
       id: `new-${Date.now()}`,
       name: "",
       count: 0,
+      reserved: 0,
       capacity: 50,
       status: "offline",
       camId: "",
