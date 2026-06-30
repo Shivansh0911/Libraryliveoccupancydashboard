@@ -70,58 +70,42 @@ def load_yolo():
         sys.exit(1)
 
 
-def is_near_person(obj_box: list, person_boxes: list) -> bool:
-    """Check if an object belongs to a person using edge-distance proximity.
+def _edge_distance(laptop_box: list, person_box: list) -> float:
+    """Distance from laptop center to nearest edge of person bbox. 0 if overlapping."""
+    ox = (laptop_box[0] + laptop_box[2]) / 2
+    oy = (laptop_box[1] + laptop_box[3]) / 2
+    dx = max(person_box[0] - ox, 0, ox - person_box[2])
+    dy = max(person_box[1] - oy, 0, oy - person_box[3])
+    return (dx ** 2 + dy ** 2) ** 0.5
 
-    Measures distance from laptop center to the NEAREST EDGE of person's bbox —
-    not to the center. This avoids false negatives from adjacent seats because
-    the threshold is relative to how far beyond the person's body the laptop is.
 
-    CEILING_CAM=False (side view / webcam):
-      Threshold = 0.5x person width beyond their edge.
-      Also ignores laptops that are above the person in frame (not desk level).
-
-    CEILING_CAM=True (top-down / ceiling cameras):
-      Threshold = 0.7x person width beyond their edge, uniform all directions.
-      Tighter than before (was 120% expansion) to avoid adjacent seat overlap.
-    """
-    ox = (obj_box[0] + obj_box[2]) / 2
-    oy = (obj_box[1] + obj_box[3]) / 2
-    for pb in person_boxes:
-        pw = pb[2] - pb[0]
-        ph = pb[3] - pb[1]
-
-        # Distance from laptop center to nearest point on person bbox edge
-        # 0 if laptop center is already inside/overlapping the person box
-        dx = max(pb[0] - ox, 0, ox - pb[2])
-        dy = max(pb[1] - oy, 0, oy - pb[3])
-        dist_to_edge = (dx ** 2 + dy ** 2) ** 0.5
-
-        if CEILING_CAM:
-            # Top-down: uniform threshold, tighter to avoid adjacent seat spill
-            threshold = pw * 0.7
-        else:
-            # Side view: skip laptops clearly above person (not at desk level)
-            if oy < pb[1] - ph * 0.2:
-                continue
-            threshold = pw * 0.5
-
-        if dist_to_edge < threshold:
-            return True
-    return False
+def _within_threshold(laptop_box: list, person_box: list) -> bool:
+    """True if laptop is within the person's desk zone threshold."""
+    ox = (laptop_box[0] + laptop_box[2]) / 2
+    oy = (laptop_box[1] + laptop_box[3]) / 2
+    pw = person_box[2] - person_box[0]
+    ph = person_box[3] - person_box[1]
+    dist = _edge_distance(laptop_box, person_box)
+    if CEILING_CAM:
+        return dist < pw * 0.7
+    else:
+        # Side view: ignore laptops above person (not at desk level)
+        if oy < person_box[1] - ph * 0.2:
+            return False
+        return dist < pw * 0.5
 
 
 def count_people_and_reserved(model, frame) -> tuple[int, int]:
-    """Detect people and reserved seats separately.
+    """Detect people and reserved seats using one-to-one laptop assignment.
 
-    Returns (people_count, reserved_count) where reserved = laptops/books
-    that are NOT near any detected person (i.e. seat is held but person absent).
+    Each person is assigned their CLOSEST laptop (if within threshold).
+    Unassigned laptops = reserved seats. This prevents a sitting person from
+    accidentally "claiming" a nearby laptop left by someone else at an adjacent seat.
 
     COCO classes used:
         0  = person
         63 = laptop  (books excluded — too many false positives from shelves)
     """
-    # class 63 = laptop only — books excluded (false positives from shelves)
     results = model(frame, verbose=False, classes=[0, 63])
     boxes = results[0].boxes
 
@@ -136,10 +120,22 @@ def count_people_and_reserved(model, frame) -> tuple[int, int]:
         else:
             object_boxes.append(coords)
 
-    reserved = sum(
-        1 for obj in object_boxes if not is_near_person(obj, person_boxes)
-    )
+    # One-to-one matching: each person claims their CLOSEST laptop only.
+    # This prevents Person A from accidentally "absorbing" Person B's reserved laptop.
+    assigned = set()
+    for pb in person_boxes:
+        best_idx, best_dist = None, float("inf")
+        for i, lb in enumerate(object_boxes):
+            if i in assigned:
+                continue
+            if _within_threshold(lb, pb):
+                d = _edge_distance(lb, pb)
+                if d < best_dist:
+                    best_dist, best_idx = d, i
+        if best_idx is not None:
+            assigned.add(best_idx)
 
+    reserved = len(object_boxes) - len(assigned)
     return len(person_boxes), reserved
 
 
