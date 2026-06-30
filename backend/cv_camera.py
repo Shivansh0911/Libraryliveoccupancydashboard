@@ -71,36 +71,42 @@ def load_yolo():
 
 
 def is_near_person(obj_box: list, person_boxes: list) -> bool:
-    """Check if an object is within a person's desk zone.
+    """Check if an object belongs to a person using edge-distance proximity.
+
+    Measures distance from laptop center to the NEAREST EDGE of person's bbox —
+    not to the center. This avoids false negatives from adjacent seats because
+    the threshold is relative to how far beyond the person's body the laptop is.
 
     CEILING_CAM=False (side view / webcam):
-      Expands person bbox 90% sideways + 60% downward (desk area below person).
-      Directional because laptop is typically to the side or on the desk below.
+      Threshold = 0.5x person width beyond their edge.
+      Also ignores laptops that are above the person in frame (not desk level).
 
-    CEILING_CAM=True (top-down / real library cameras):
-      Expands person bbox 120% in ALL directions equally.
-      Directional bias doesn't apply — laptop can be anywhere around the person
-      when viewed from above depending on seating orientation.
+    CEILING_CAM=True (top-down / ceiling cameras):
+      Threshold = 0.7x person width beyond their edge, uniform all directions.
+      Tighter than before (was 120% expansion) to avoid adjacent seat overlap.
     """
     ox = (obj_box[0] + obj_box[2]) / 2
     oy = (obj_box[1] + obj_box[3]) / 2
     for pb in person_boxes:
         pw = pb[2] - pb[0]
         ph = pb[3] - pb[1]
+
+        # Distance from laptop center to nearest point on person bbox edge
+        # 0 if laptop center is already inside/overlapping the person box
+        dx = max(pb[0] - ox, 0, ox - pb[2])
+        dy = max(pb[1] - oy, 0, oy - pb[3])
+        dist_to_edge = (dx ** 2 + dy ** 2) ** 0.5
+
         if CEILING_CAM:
-            # Uniform expansion — direction doesn't matter from top-down view
-            x1 = pb[0] - pw * 1.2
-            x2 = pb[2] + pw * 1.2
-            y1 = pb[1] - ph * 1.2
-            y2 = pb[3] + ph * 1.2
+            # Top-down: uniform threshold, tighter to avoid adjacent seat spill
+            threshold = pw * 0.7
         else:
-            # Directional — side view: tight sideways + desk area below
-            # 0.4 sideways = arm's reach only, avoids claiming adjacent seat's laptop
-            x1 = pb[0] - pw * 0.4
-            x2 = pb[2] + pw * 0.4
-            y1 = pb[1] - ph * 0.2   # small upward margin
-            y2 = pb[3] + ph * 0.6   # desk area below
-        if x1 <= ox <= x2 and y1 <= oy <= y2:
+            # Side view: skip laptops clearly above person (not at desk level)
+            if oy < pb[1] - ph * 0.2:
+                continue
+            threshold = pw * 0.5
+
+        if dist_to_edge < threshold:
             return True
     return False
 
