@@ -94,9 +94,10 @@ def is_near_person(obj_box: list, person_boxes: list) -> bool:
             y1 = pb[1] - ph * 1.2
             y2 = pb[3] + ph * 1.2
         else:
-            # Directional — side view: more sideways + desk area below
-            x1 = pb[0] - pw * 0.9
-            x2 = pb[2] + pw * 0.9
+            # Directional — side view: tight sideways + desk area below
+            # 0.4 sideways = arm's reach only, avoids claiming adjacent seat's laptop
+            x1 = pb[0] - pw * 0.4
+            x2 = pb[2] + pw * 0.4
             y1 = pb[1] - ph * 0.2   # small upward margin
             y2 = pb[3] + ph * 0.6   # desk area below
         if x1 <= ox <= x2 and y1 <= oy <= y2:
