@@ -45,6 +45,12 @@ CAMERAS = {
 INFERENCE_INTERVAL = 3   # seconds between each count POST
 SHOW_PREVIEW = False     # set True to open a CV window (requires display)
 MODEL_NAME = "yolov8s.pt"  # small model — better overlap detection than nano, ~22MB
+
+# Set True if cameras are ceiling-mounted (top-down view).
+# False = side-angle view (webcam on desk/wall).
+# Ceiling: laptop can be in ANY direction → uniform expansion used.
+# Side: laptop is typically to the side/below person → directional expansion used.
+CEILING_CAM = False
 # ───────────────────────────────────────────────────────────────────────────
 
 
@@ -64,25 +70,35 @@ def load_yolo():
         sys.exit(1)
 
 
-def is_near_person(obj_box: list, person_boxes: list, h_expand: float = 0.9, v_expand: float = 0.6) -> bool:
+def is_near_person(obj_box: list, person_boxes: list) -> bool:
     """Check if an object is within a person's desk zone.
 
-    Expands each person's bounding box horizontally (laptop to the side)
-    and downward (laptop on desk below seated person). If the object center
-    falls inside that expanded zone, it belongs to that person — not reserved.
+    CEILING_CAM=False (side view / webcam):
+      Expands person bbox 90% sideways + 60% downward (desk area below person).
+      Directional because laptop is typically to the side or on the desk below.
 
-    h_expand: fraction of person-width added to each side  (0.9 = 90% extra each side)
-    v_expand: fraction of person-height added below         (0.6 = 60% extra below)
+    CEILING_CAM=True (top-down / real library cameras):
+      Expands person bbox 120% in ALL directions equally.
+      Directional bias doesn't apply — laptop can be anywhere around the person
+      when viewed from above depending on seating orientation.
     """
     ox = (obj_box[0] + obj_box[2]) / 2
     oy = (obj_box[1] + obj_box[3]) / 2
     for pb in person_boxes:
         pw = pb[2] - pb[0]
         ph = pb[3] - pb[1]
-        x1 = pb[0] - pw * h_expand
-        x2 = pb[2] + pw * h_expand
-        y1 = pb[1] - ph * 0.2   # small upward margin
-        y2 = pb[3] + ph * v_expand  # desk area below
+        if CEILING_CAM:
+            # Uniform expansion — direction doesn't matter from top-down view
+            x1 = pb[0] - pw * 1.2
+            x2 = pb[2] + pw * 1.2
+            y1 = pb[1] - ph * 1.2
+            y2 = pb[3] + ph * 1.2
+        else:
+            # Directional — side view: more sideways + desk area below
+            x1 = pb[0] - pw * 0.9
+            x2 = pb[2] + pw * 0.9
+            y1 = pb[1] - ph * 0.2   # small upward margin
+            y2 = pb[3] + ph * 0.6   # desk area below
         if x1 <= ox <= x2 and y1 <= oy <= y2:
             return True
     return False
