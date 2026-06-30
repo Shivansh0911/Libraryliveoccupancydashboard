@@ -133,8 +133,9 @@ export function RegionCard({ region, mobile = false }: RegionCardProps) {
                   padding: "2px 6px",
                   borderRadius: "4px",
                   border: "1px solid #78350F",
+                  letterSpacing: "0.03em",
                 }}>
-                  {region.reserved} reserved
+                  {region.reserved} reserved 💻
                 </span>
               )}
               {!isOffline && (
