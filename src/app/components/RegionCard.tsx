@@ -79,9 +79,25 @@ export function RegionCard({ region, mobile = false }: RegionCardProps) {
             </span>
           </div>
           <CapacityBar count={region.count} capacity={region.capacity} status={region.status} />
-          <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: "11px", color: "#475569" }}>
-            {isOffline ? `Camera offline · Last known: ${region.lastUpdated}` : `Updated ${region.lastUpdated}`}
-          </span>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: "11px", color: "#475569" }}>
+              {isOffline ? `Camera offline · Last known: ${region.lastUpdated}` : `Updated ${region.lastUpdated}`}
+            </span>
+            {!isOffline && region.reserved > 0 && (
+              <span style={{
+                fontFamily: "'IBM Plex Mono', monospace",
+                fontSize: "10px",
+                color: "#F59E0B",
+                backgroundColor: "#2D1B00",
+                padding: "2px 6px",
+                borderRadius: "4px",
+                border: "1px solid #78350F",
+                letterSpacing: "0.03em",
+              }}>
+                {region.reserved} reserved 💻
+              </span>
+            )}
+          </div>
         </>
       ) : (
         /* Desktop layout */
