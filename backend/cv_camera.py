@@ -64,19 +64,26 @@ def load_yolo():
         sys.exit(1)
 
 
-def is_near_person(obj_box: list, person_boxes: list, proximity: float = 0.18) -> bool:
-    """Check if an object bounding box is close to any detected person.
-    proximity = fraction of frame diagonal used as distance threshold.
+def is_near_person(obj_box: list, person_boxes: list, h_expand: float = 0.9, v_expand: float = 0.6) -> bool:
+    """Check if an object is within a person's desk zone.
+
+    Expands each person's bounding box horizontally (laptop to the side)
+    and downward (laptop on desk below seated person). If the object center
+    falls inside that expanded zone, it belongs to that person — not reserved.
+
+    h_expand: fraction of person-width added to each side  (0.9 = 90% extra each side)
+    v_expand: fraction of person-height added below         (0.6 = 60% extra below)
     """
     ox = (obj_box[0] + obj_box[2]) / 2
     oy = (obj_box[1] + obj_box[3]) / 2
     for pb in person_boxes:
-        px = (pb[0] + pb[2]) / 2
-        py = (pb[1] + pb[3]) / 2
-        dist = ((ox - px) ** 2 + (oy - py) ** 2) ** 0.5
-        # Use person box diagonal as scale reference
-        p_diag = ((pb[2] - pb[0]) ** 2 + (pb[3] - pb[1]) ** 2) ** 0.5
-        if dist < p_diag * (1 + proximity):
+        pw = pb[2] - pb[0]
+        ph = pb[3] - pb[1]
+        x1 = pb[0] - pw * h_expand
+        x2 = pb[2] + pw * h_expand
+        y1 = pb[1] - ph * 0.2   # small upward margin
+        y2 = pb[3] + ph * v_expand  # desk area below
+        if x1 <= ox <= x2 and y1 <= oy <= y2:
             return True
     return False
 
