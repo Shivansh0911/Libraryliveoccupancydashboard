@@ -48,13 +48,17 @@ const SEED: Region[] = [
     locationNotes: "West wing, round tables. Audio permitted at low volumes.",
     section: "library",
   },
+];
+
+// Gym placeholder — shown when no live gym regions exist in backend DB yet
+const GYM_PLACEHOLDER: Region[] = [
   {
     id: "g1",
     name: "Main Gym Floor",
-    count: 18, reserved: 0,
-    capacity: 50, status: "free",
-    camId: "cam_gym_01", camOnline: true, lastUpdated: "3s ago",
-    locationNotes: "Ground floor gym. Cardio + weights area.",
+    count: 0, reserved: 0,
+    capacity: 50, status: "offline",
+    camId: "cam_gym_01", camOnline: false, lastUpdated: "not connected",
+    locationNotes: "Add gym region via Admin Panel to go live.",
     section: "gym",
   },
 ];
@@ -198,7 +202,9 @@ export default function App() {
   );
 
   const libraryRegions = displayRegions.filter(r => r.section === "library");
-  const gymRegions = displayRegions.filter(r => r.section === "gym");
+  const liveGymRegions = displayRegions.filter(r => r.section === "gym");
+  // Show live gym if available, else show placeholder so gym section always appears
+  const gymRegions = liveGymRegions.length > 0 ? liveGymRegions : GYM_PLACEHOLDER;
 
   const handleLoginAttempt = useCallback(async (u: string, p: string) => {
     await auth.login(u, p);
@@ -337,7 +343,7 @@ export default function App() {
                   gap: "6px",
                   flexWrap: "wrap",
                 }}>
-                  <span>{libraryRegions.length} library · {gymRegions.length} gym</span>
+                  <span>{libraryRegions.length} library · {liveGymRegions.length} gym</span>
                   <span style={{ color: "#2A2E42" }}>·</span>
                   {connected
                     ? <span style={{ color: "#22C55E" }}>Live</span>
@@ -416,32 +422,28 @@ export default function App() {
             )}
 
             {/* Gym Section */}
-            {gymRegions.length > 0 && (
-              <>
-                <SectionHeader label="Gym" count={gymRegions.length} accent="#06B6D4" />
-                {isMobile ? (
-                  <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-                    {gymRegions.map((r, i) => (
-                      <div key={r.id} style={{ animation: `fadeUp 0.3s ease ${i * 0.06}s both` }}>
-                        <RegionCard region={r} mobile />
-                      </div>
-                    ))}
+            <SectionHeader label="Gym" count={liveGymRegions.length} accent="#06B6D4" />
+            {isMobile ? (
+              <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                {gymRegions.map((r, i) => (
+                  <div key={r.id} style={{ animation: `fadeUp 0.3s ease ${i * 0.06}s both` }}>
+                    <RegionCard region={r} mobile />
                   </div>
-                ) : (
-                  <div style={{
-                    display: "grid",
-                    gridTemplateColumns: "repeat(2, minmax(280px, 1fr))",
-                    gap: "16px",
-                    maxWidth: "900px",
-                  }}>
-                    {gymRegions.map((r, i) => (
-                      <div key={r.id} style={{ animation: `fadeUp 0.3s ease ${i * 0.07}s both` }}>
-                        <RegionCard region={r} />
-                      </div>
-                    ))}
+                ))}
+              </div>
+            ) : (
+              <div style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(2, minmax(280px, 1fr))",
+                gap: "16px",
+                maxWidth: "900px",
+              }}>
+                {gymRegions.map((r, i) => (
+                  <div key={r.id} style={{ animation: `fadeUp 0.3s ease ${i * 0.07}s both` }}>
+                    <RegionCard region={r} />
                   </div>
-                )}
-              </>
+                ))}
+              </div>
             )}
           </div>
 
