@@ -122,6 +122,7 @@ export function AdminPanel({ regions, onUpdateRegions, token }: AdminPanelProps)
       camera_id: updated.camId,
       capacity: updated.capacity,
       description: updated.locationNotes || undefined,
+      section: updated.section,
     };
 
     if (token && !token.startsWith("demo-")) {
@@ -177,6 +178,7 @@ export function AdminPanel({ regions, onUpdateRegions, token }: AdminPanelProps)
       camOnline: false,
       lastUpdated: "",
       locationNotes: "",
+      section: "library",
     });
   };
 

@@ -63,6 +63,7 @@ async def build_dashboard_state(db: AsyncSession) -> DashboardBroadcast:
                 camera_online=(status != "offline"),
                 last_updated=last_updated,
                 description=region.description,
+                section=region.section,
             )
         )
 

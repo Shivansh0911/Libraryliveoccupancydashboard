@@ -19,6 +19,7 @@ const SEED: Region[] = [
     capacity: 40, status: "free",
     camId: "cam_01", camOnline: true, lastUpdated: "2s ago",
     locationNotes: "Ground floor main entrance. Camera mounted above main doors.",
+    section: "library",
   },
   {
     id: "r2",
@@ -27,6 +28,7 @@ const SEED: Region[] = [
     capacity: 80, status: "moderate",
     camId: "cam_02", camOnline: true, lastUpdated: "1s ago",
     locationNotes: "Central hall, rows A–H. High-ceiling area with skylight.",
+    section: "library",
   },
   {
     id: "r3",
@@ -35,6 +37,7 @@ const SEED: Region[] = [
     capacity: 30, status: "full",
     camId: "cam_03", camOnline: true, lastUpdated: "4s ago",
     locationNotes: "Strict silence policy. Staircase access only.",
+    section: "library",
   },
   {
     id: "r4",
@@ -43,6 +46,16 @@ const SEED: Region[] = [
     capacity: 25, status: "free",
     camId: "cam_04", camOnline: true, lastUpdated: "2s ago",
     locationNotes: "West wing, round tables. Audio permitted at low volumes.",
+    section: "library",
+  },
+  {
+    id: "g1",
+    name: "Main Gym Floor",
+    count: 18, reserved: 0,
+    capacity: 50, status: "free",
+    camId: "cam_gym_01", camOnline: true, lastUpdated: "3s ago",
+    locationNotes: "Ground floor gym. Cardio + weights area.",
+    section: "gym",
   },
 ];
 
@@ -80,6 +93,7 @@ function fromRegionOut(r: RegionOut): Region {
     camOnline: r.camera_online,
     lastUpdated: r.last_updated ? formatRelativeTime(r.last_updated) : "never",
     locationNotes: r.description ?? "",
+    section: (r.section === "gym" ? "gym" : "library"),
   };
 }
 
@@ -91,6 +105,35 @@ function useIsMobile() {
     return () => window.removeEventListener("resize", fn);
   }, []);
   return mobile;
+}
+
+function SectionHeader({ label, count, accent }: { label: string; count: number; accent: string }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "16px" }}>
+      <span style={{
+        fontFamily: "'DM Sans', sans-serif",
+        fontWeight: 700,
+        fontSize: "13px",
+        color: accent,
+        textTransform: "uppercase",
+        letterSpacing: "0.1em",
+      }}>
+        {label}
+      </span>
+      <span style={{
+        fontFamily: "'IBM Plex Mono', monospace",
+        fontSize: "11px",
+        color: "#334155",
+        backgroundColor: "#1A1D27",
+        padding: "2px 8px",
+        borderRadius: "4px",
+        border: "1px solid #2A2E42",
+      }}>
+        {count} zone{count !== 1 ? "s" : ""}
+      </span>
+      <div style={{ flex: 1, height: "1px", backgroundColor: "#1E2030" }} />
+    </div>
+  );
 }
 
 export default function App() {
@@ -153,6 +196,9 @@ export default function App() {
       ? { ...r, status: "offline" as const, camOnline: false, lastUpdated: "8:47 AM" }
       : r
   );
+
+  const libraryRegions = displayRegions.filter(r => r.section === "library");
+  const gymRegions = displayRegions.filter(r => r.section === "gym");
 
   const handleLoginAttempt = useCallback(async (u: string, p: string) => {
     await auth.login(u, p);
@@ -291,7 +337,7 @@ export default function App() {
                   gap: "6px",
                   flexWrap: "wrap",
                 }}>
-                  <span>{displayRegions.length} regions</span>
+                  <span>{libraryRegions.length} library · {gymRegions.length} gym</span>
                   <span style={{ color: "#2A2E42" }}>·</span>
                   {connected
                     ? <span style={{ color: "#22C55E" }}>Live</span>
@@ -340,16 +386,17 @@ export default function App() {
               )}
             </div>
 
-            {/* Cards */}
+            {/* Library Section */}
+            <SectionHeader label="Library" count={libraryRegions.length} accent="#6366F1" />
             {isMobile ? (
-              <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-                {displayRegions.map((r, i) => (
+              <div style={{ display: "flex", flexDirection: "column", gap: "12px", marginBottom: "32px" }}>
+                {libraryRegions.map((r, i) => (
                   <div key={r.id} style={{ animation: `fadeUp 0.3s ease ${i * 0.06}s both` }}>
                     <RegionCard region={r} mobile />
                   </div>
                 ))}
                 <div style={{ marginTop: "8px" }}>
-                  <SmartSuggestionStrip regions={displayRegions} inline />
+                  <SmartSuggestionStrip regions={libraryRegions} inline />
                 </div>
               </div>
             ) : (
@@ -358,17 +405,47 @@ export default function App() {
                 gridTemplateColumns: "repeat(2, minmax(280px, 1fr))",
                 gap: "16px",
                 maxWidth: "900px",
+                marginBottom: "40px",
               }}>
-                {displayRegions.map((r, i) => (
+                {libraryRegions.map((r, i) => (
                   <div key={r.id} style={{ animation: `fadeUp 0.3s ease ${i * 0.07}s both` }}>
                     <RegionCard region={r} />
                   </div>
                 ))}
               </div>
             )}
+
+            {/* Gym Section */}
+            {gymRegions.length > 0 && (
+              <>
+                <SectionHeader label="Gym" count={gymRegions.length} accent="#06B6D4" />
+                {isMobile ? (
+                  <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                    {gymRegions.map((r, i) => (
+                      <div key={r.id} style={{ animation: `fadeUp 0.3s ease ${i * 0.06}s both` }}>
+                        <RegionCard region={r} mobile />
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(2, minmax(280px, 1fr))",
+                    gap: "16px",
+                    maxWidth: "900px",
+                  }}>
+                    {gymRegions.map((r, i) => (
+                      <div key={r.id} style={{ animation: `fadeUp 0.3s ease ${i * 0.07}s both` }}>
+                        <RegionCard region={r} />
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
           </div>
 
-          {!isMobile && <SmartSuggestionStrip regions={displayRegions} />}
+          {!isMobile && <SmartSuggestionStrip regions={libraryRegions} />}
         </>
       )}
     </div>

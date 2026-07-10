@@ -15,10 +15,11 @@ export function EditRegionModal({ region, isNew = false, onSave, onDelete, onClo
   const [camId, setCamId] = useState(region.camId);
   const [capacity, setCapacity] = useState(String(region.capacity));
   const [notes, setNotes] = useState(region.locationNotes);
+  const [section, setSection] = useState<"library" | "gym">(region.section ?? "library");
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   const handleSave = () => {
-    onSave({ ...region, name, camId, capacity: parseInt(capacity) || region.capacity, locationNotes: notes });
+    onSave({ ...region, name, camId, capacity: parseInt(capacity) || region.capacity, locationNotes: notes, section });
   };
 
   const inputStyle: React.CSSProperties = {
@@ -155,6 +156,35 @@ export function EditRegionModal({ region, isNew = false, onSave, onDelete, onClo
             onFocus={e => { (e.target as HTMLInputElement).style.borderColor = "#6366F1"; }}
             onBlur={e => { (e.target as HTMLInputElement).style.borderColor = "#334155"; }}
           />
+        </div>
+
+        {/* Section */}
+        <div>
+          <label style={labelStyle}>Section</label>
+          <div style={{ display: "flex", gap: "8px" }}>
+            {(["library", "gym"] as const).map(s => (
+              <button
+                key={s}
+                onClick={() => setSection(s)}
+                style={{
+                  flex: 1,
+                  padding: "9px",
+                  borderRadius: "8px",
+                  border: `1px solid ${section === s ? (s === "gym" ? "#06B6D4" : "#6366F1") : "#334155"}`,
+                  backgroundColor: section === s ? (s === "gym" ? "#0C2A30" : "#1E1F3A") : "transparent",
+                  color: section === s ? (s === "gym" ? "#06B6D4" : "#6366F1") : "#475569",
+                  fontFamily: "'DM Sans', sans-serif",
+                  fontWeight: 600,
+                  fontSize: "13px",
+                  cursor: "pointer",
+                  textTransform: "capitalize",
+                  transition: "all 0.15s",
+                }}
+              >
+                {s === "library" ? "📚 Library" : "🏋️ Gym"}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Notes */}

@@ -8,6 +8,7 @@ class RegionCreate(BaseModel):
     camera_id: str
     capacity: int
     description: Optional[str] = None
+    section: str = "library"
 
 
 class RegionUpdate(BaseModel):
@@ -15,6 +16,7 @@ class RegionUpdate(BaseModel):
     camera_id: Optional[str] = None
     capacity: Optional[int] = None
     description: Optional[str] = None
+    section: Optional[str] = None
 
 
 class CountUpdatePayload(BaseModel):
@@ -36,6 +38,7 @@ class RegionOut(BaseModel):
     camera_online: bool
     last_updated: Optional[datetime]
     description: Optional[str] = None
+    section: str = "library"
 
     model_config = ConfigDict(from_attributes=True)
 

@@ -26,3 +26,8 @@ async def init_db():
                 "ALTER TABLE count_logs ADD COLUMN IF NOT EXISTS reserved_count INTEGER DEFAULT 0"
             )
         )
+        await conn.execute(
+            __import__("sqlalchemy").text(
+                "ALTER TABLE regions ADD COLUMN IF NOT EXISTS section VARCHAR DEFAULT 'library'"
+            )
+        )

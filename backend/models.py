@@ -13,6 +13,7 @@ class Region(Base):
     camera_id: Mapped[str] = mapped_column(String(100), unique=True)
     capacity: Mapped[int]
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    section: Mapped[str] = mapped_column(String(20), default="library", server_default="library")
     is_active: Mapped[bool] = mapped_column(default=True)
     created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
 

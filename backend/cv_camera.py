@@ -36,10 +36,11 @@ BACKEND_URL = "https://library-backendd-production.up.railway.app"
 # ─── Configure your cameras here ───────────────────────────────────────────
 # source: webcam index (0,1,2), RTSP URL, or "test" for simulation
 CAMERAS = {
-    "cam_01": {"source": 0,      "name": "Entrance / Lobby"},
-    "cam_02": {"source": 1,      "name": "Main Reading Hall"},
-    "cam_03": {"source": 2,      "name": "Upper Floor / Quiet Zone"},
-    "cam_04": {"source": 3,      "name": "Collaborative / Group Study"},
+    "cam_01":     {"source": 0,      "name": "Entrance / Lobby",            "detect_reserved": True},
+    "cam_02":     {"source": 1,      "name": "Main Reading Hall",           "detect_reserved": True},
+    "cam_03":     {"source": 2,      "name": "Upper Floor / Quiet Zone",    "detect_reserved": True},
+    "cam_04":     {"source": 3,      "name": "Collaborative / Group Study", "detect_reserved": True},
+    "cam_gym_01": {"source": 4,      "name": "Main Gym Floor",              "detect_reserved": False},
 }
 
 INFERENCE_INTERVAL = 3   # seconds between each count POST
@@ -95,8 +96,10 @@ def _within_threshold(laptop_box: list, person_box: list) -> bool:
         return dist < pw * 0.5
 
 
-def count_people_and_reserved(model, frame) -> tuple[int, int]:
+def count_people_and_reserved(model, frame, detect_reserved: bool = True) -> tuple[int, int]:
     """Detect people and reserved seats using one-to-one laptop assignment.
+
+    detect_reserved=False for gym cameras — only people counted, no laptop detection.
 
     Each person is assigned their CLOSEST laptop (if within threshold).
     Unassigned laptops = reserved seats. This prevents a sitting person from
@@ -106,7 +109,8 @@ def count_people_and_reserved(model, frame) -> tuple[int, int]:
         0  = person
         63 = laptop  (books excluded — too many false positives from shelves)
     """
-    results = model(frame, verbose=False, classes=[0, 63])
+    detect_classes = [0, 63] if detect_reserved else [0]
+    results = model(frame, verbose=False, classes=detect_classes)
     boxes = results[0].boxes
 
     person_boxes = []
@@ -181,11 +185,13 @@ async def run_camera(model, camera_id: str, source, client: httpx.AsyncClient):
                     print(f"[{camera_id}] Frame read failed — camera disconnected, reconnecting ...")
                     break
 
-                count, reserved = count_people_and_reserved(model, frame)
+                do_reserved = CAMERAS.get(camera_id, {}).get("detect_reserved", True)
+                count, reserved = count_people_and_reserved(model, frame, detect_reserved=do_reserved)
                 ok = await post_count(client, camera_id, count, reserved)
                 status = "✓" if ok else "✗"
                 ts = datetime.now().strftime("%H:%M:%S")
-                print(f"[{camera_id}] {ts}  people={count:>3}  reserved={reserved:>2}  {status}")
+                res_str = f"reserved={reserved:>2}" if do_reserved else "no-reserved"
+                print(f"[{camera_id}] {ts}  people={count:>3}  {res_str}  {status}")
 
                 if SHOW_PREVIEW:
                     cv2.putText(frame, f"{camera_id}: {count} people  {reserved} reserved", (20, 40),

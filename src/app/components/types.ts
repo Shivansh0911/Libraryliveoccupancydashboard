@@ -1,4 +1,5 @@
 export type RegionStatus = "free" | "moderate" | "full" | "offline";
+export type RegionSection = "library" | "gym";
 
 export interface Region {
   id: string;
@@ -11,4 +12,5 @@ export interface Region {
   camOnline: boolean;
   lastUpdated: string;
   locationNotes: string;
+  section: RegionSection;
 }

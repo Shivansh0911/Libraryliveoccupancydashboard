@@ -14,6 +14,7 @@ export interface RegionOut {
   camera_online: boolean;
   last_updated: string | null;
   description: string | null;
+  section: string;
 }
 
 export function useRealtimeCount() {
