@@ -1,5 +1,5 @@
-# Campus Library Occupancy Dashboard
-### BITS Hyderabad · Real-time library occupancy tracker powered by computer vision
+# Campus Library & Gym Occupancy Dashboard
+### BITS Hyderabad · Real-time occupancy tracker for library and gym, powered by computer vision
 
 [![Live Demo](https://img.shields.io/badge/Live-bits--library.netlify.app-6366F1?style=flat-square)](https://bits-library.netlify.app)
 [![Backend](https://img.shields.io/badge/API-Railway-0B0D0E?style=flat-square)](https://library-backendd-production.up.railway.app/docs)
@@ -9,16 +9,18 @@
 
 ## What It Does
 
-Students open a dashboard and instantly see which library areas are **free**, **moderate**, or **full** — updated live, no refresh needed. Cameras run YOLO people-counting independently per region and POST counts to a central backend. The dashboard updates in real-time via WebSocket.
+Students open a dashboard and instantly see which library areas are **free**, **moderate**, or **full** — and how busy the gym is — updated live, no refresh needed. Cameras run YOLO people-counting independently per region and POST counts to a central backend. The dashboard updates in real-time via WebSocket.
 
 ```
 IP Cameras (RTSP)
       ↓
-cv_camera.py  ←  YOLOv8s people detection
+cv_camera.py  ←  YOLOv8s people + laptop detection
       ↓  POST /count/update
 FastAPI Backend  ←  count storage + status computation
       ↓  WebSocket broadcast
 React Dashboard  ←  live UI for students + admin panel
+                     ├── 📚 Library section (4 regions, reserved seat detection)
+                     └── 🏋️  Gym section (people count only)
 ```
 
 ---
@@ -36,7 +38,9 @@ React Dashboard  ←  live UI for students + admin panel
 
 **Student Dashboard**
 - Live occupancy for 4 library regions — updates every 3 seconds
+- Separate **Gym Occupancy** section — live people count for the gym floor
 - Color-coded status: FREE · MODERATE · FULL · OFFLINE
+- Reserved seat detection — shows how many seats are held by unattended laptops
 - Smart suggestion strip — "Group Study is least crowded"
 - Offline card degraded state with last known count
 - Fully responsive — desktop and mobile
@@ -44,6 +48,7 @@ React Dashboard  ←  live UI for students + admin panel
 **Admin Panel**
 - JWT-protected login
 - Add / edit / soft-delete regions and cameras
+- Section toggle per region: 📚 Library or 🏋️ Gym
 - Camera feed health monitor with live/disconnected status
 - All changes persist to database — no code changes needed
 
@@ -55,9 +60,91 @@ React Dashboard  ←  live UI for students + admin panel
 
 **Computer Vision**
 - YOLOv8s people detection (class 0 — COCO dataset)
+- Reserved seat detection via laptop detection (class 63) — library cameras only
+- Gym cameras skip laptop detection entirely (`detect_reserved: False`)
+- One-to-one laptop assignment prevents adjacent-seat false positives
+- `CEILING_CAM` flag for top-down vs side-angle camera geometry
 - Supports USB webcam, IP cameras (RTSP), and simulation mode
 - Multi-camera support — one async task per camera
 - Auto-reconnect on camera disconnect
+
+---
+
+## Gym Occupancy
+
+The gym section is a separate panel on the dashboard showing live people count for the gym floor. It works alongside the library but with simpler logic — no reserved seat detection.
+
+### How it differs from library regions
+
+| | Library | Gym |
+|---|---|---|
+| YOLO classes | person + laptop | person only |
+| Reserved seats | Yes — unattended laptops counted | No |
+| Dashboard section | 📚 Library | 🏋️ Gym |
+| DB `section` field | `"library"` | `"gym"` |
+
+### Setting up a gym region
+
+1. Start the backend and open the Admin Panel
+2. Click **Add Region**
+3. Set **Camera ID** to `cam_gym_01` (or any ID matching your `CAMERAS` dict)
+4. Set **Section** to 🏋️ Gym
+5. Set capacity (e.g. 50)
+6. Save — the gym section goes live immediately via WebSocket
+
+Until a gym region is added, the dashboard shows an offline placeholder card so the gym section is always visible.
+
+### Gym camera configuration (`cv_camera.py`)
+
+```python
+CAMERAS = {
+    # Library cameras — reserved seat detection enabled
+    "cam_01":     {"source": 0, "name": "Entrance / Lobby",            "detect_reserved": True},
+    "cam_02":     {"source": 1, "name": "Main Reading Hall",           "detect_reserved": True},
+    "cam_03":     {"source": 2, "name": "Upper Floor / Quiet Zone",    "detect_reserved": True},
+    "cam_04":     {"source": 3, "name": "Collaborative / Group Study", "detect_reserved": True},
+
+    # Gym camera — people count only, no laptop detection
+    "cam_gym_01": {"source": 4, "name": "Main Gym Floor",              "detect_reserved": False},
+}
+```
+
+Run the gym camera alone:
+```bash
+python backend/cv_camera.py --camera-id cam_gym_01 --source 4
+
+# Or an IP camera:
+python backend/cv_camera.py --camera-id cam_gym_01 --source "rtsp://IP:554/gym"
+
+# Or run all cameras at once (library + gym):
+python backend/cv_camera.py --multi
+```
+
+---
+
+## Reserved Seat Detection (Library)
+
+A seat is **reserved** when a laptop is detected near a table but no person is sitting there — the owner stepped away.
+
+### Detection logic
+
+- YOLO detects both people (class 0) and laptops (class 63) per frame
+- Each person is assigned their **closest** laptop using edge-distance (distance from laptop center to nearest edge of the person's bounding box)
+- Assignment is **one-to-one** — a person cannot absorb a neighbour's laptop
+- Laptops that remain unassigned after matching = reserved seats
+
+### Proximity thresholds
+
+```python
+CEILING_CAM = False   # True for top-down/ceiling cameras, False for side/desk-level cameras
+```
+
+| Camera angle | Threshold |
+|---|---|
+| Side view (`CEILING_CAM=False`) | laptop within 0.5× person width from person's bounding box edge |
+| Ceiling / top-down (`CEILING_CAM=True`) | laptop within 0.7× person width (uniform, any direction) |
+
+Side-view cameras also ignore laptops detected **above** the person's head (not at desk level).
 
 ---
 
@@ -85,20 +172,20 @@ campus-library-occupancy/
 │   ├── main.py               # FastAPI app, WebSocket, heartbeat
 │   ├── config.py             # Settings via pydantic-settings
 │   ├── database.py           # Async SQLAlchemy engine
-│   ├── models.py             # Region + CountLog ORM models
+│   ├── models.py             # Region + CountLog ORM models (section field)
 │   ├── schemas.py            # Pydantic I/O schemas
 │   ├── auth.py               # JWT creation + verification
 │   ├── dashboard.py          # Status logic + state builder
 │   ├── websocket_manager.py  # Connection manager + broadcast
 │   ├── seed.py               # First-run DB seed
 │   ├── ml_stub.py            # Mock camera simulator (dev)
-│   ├── cv_camera.py          # Real YOLO people counter
+│   ├── cv_camera.py          # Real YOLO people counter + reserved detection
 │   ├── Dockerfile            # Production container
 │   ├── requirements.txt      # Backend dependencies
 │   └── requirements_cv.txt   # CV dependencies (torch, ultralytics)
 └── src/
     ├── app/
-    │   ├── App.tsx            # Main app + routing state
+    │   ├── App.tsx            # Main app + routing state + gym/library split
     │   └── components/        # RegionCard, AdminPanel, NavBar...
     ├── hooks/
     │   ├── useRealtimeCount.ts # WebSocket hook with auto-reconnect
@@ -137,13 +224,13 @@ python ml_stub.py
 ```bash
 pip install -r backend/requirements_cv.txt
 
-# Webcam
+# Library webcam
 python backend/cv_camera.py --camera-id cam_01 --source 0
 
-# IP Camera
-python backend/cv_camera.py --camera-id cam_01 --source "rtsp://IP:554/stream1"
+# Gym camera (IP)
+python backend/cv_camera.py --camera-id cam_gym_01 --source "rtsp://IP:554/gym"
 
-# All cameras
+# All cameras (library + gym)
 python backend/cv_camera.py --multi
 ```
 
@@ -157,13 +244,16 @@ The CV system connects via a single endpoint. After each inference:
 POST /count/update
 Content-Type: application/json
 
-{ "camera_id": "cam_01", "count": 14 }
+{
+  "camera_id": "cam_01",
+  "count": 14,
+  "reserved": 2
+}
 ```
 
-`camera_id` must match a region configured in the Admin Panel. Nothing else changes on the backend side — swap `ml_stub.py` for any real detection system.
+`camera_id` must match a region configured in the Admin Panel. `reserved` is `0` for gym cameras. Nothing else changes on the backend side — swap `ml_stub.py` for any real detection system.
 
 ---
-
 
 ## Status Logic
 
