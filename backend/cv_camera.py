@@ -40,7 +40,8 @@ CAMERAS = {
     "cam_02":     {"source": 1,      "name": "Main Reading Hall",           "detect_reserved": True},
     "cam_03":     {"source": 2,      "name": "Upper Floor / Quiet Zone",    "detect_reserved": True},
     "cam_04":     {"source": 3,      "name": "Collaborative / Group Study", "detect_reserved": True},
-    "cam_gym_01": {"source": 4,      "name": "Main Gym Floor",              "detect_reserved": False},
+    "cam_gym_01":       {"source": 4, "name": "Main Gym Floor",              "detect_reserved": False},
+    "cam_badminton_01": {"source": 5, "name": "Badminton Courts",            "detect_reserved": False},
 }
 
 INFERENCE_INTERVAL = 3   # seconds between each count POST

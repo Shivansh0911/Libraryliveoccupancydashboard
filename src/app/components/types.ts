@@ -1,5 +1,5 @@
 export type RegionStatus = "free" | "moderate" | "full" | "offline";
-export type RegionSection = "library" | "gym";
+export type RegionSection = "library" | "gym" | "badminton";
 
 export interface Region {
   id: string;

@@ -63,6 +63,19 @@ const GYM_PLACEHOLDER: Region[] = [
   },
 ];
 
+// Badminton placeholder — shown when no live badminton regions exist in backend DB yet
+const BADMINTON_PLACEHOLDER: Region[] = [
+  {
+    id: "b1",
+    name: "Badminton Courts",
+    count: 0, reserved: 0,
+    capacity: 24, status: "offline",
+    camId: "cam_badminton_01", camOnline: false, lastUpdated: "not connected",
+    locationNotes: "Add badminton region via Admin Panel to go live.",
+    section: "badminton",
+  },
+];
+
 function computeStatus(count: number, capacity: number): Region["status"] {
   const p = count / capacity;
   if (p >= 0.75) return "full";
@@ -97,7 +110,7 @@ function fromRegionOut(r: RegionOut): Region {
     camOnline: r.camera_online,
     lastUpdated: r.last_updated ? formatRelativeTime(r.last_updated) : "never",
     locationNotes: r.description ?? "",
-    section: (r.section === "gym" ? "gym" : "library"),
+    section: (r.section === "gym" ? "gym" : r.section === "badminton" ? "badminton" : "library"),
   };
 }
 
@@ -203,8 +216,10 @@ export default function App() {
 
   const libraryRegions = displayRegions.filter(r => r.section === "library");
   const liveGymRegions = displayRegions.filter(r => r.section === "gym");
-  // Show live gym if available, else show placeholder so gym section always appears
+  const liveBadmintonRegions = displayRegions.filter(r => r.section === "badminton");
+  // Show live data if available, else show placeholder so each section always appears
   const gymRegions = liveGymRegions.length > 0 ? liveGymRegions : GYM_PLACEHOLDER;
+  const badmintonRegions = liveBadmintonRegions.length > 0 ? liveBadmintonRegions : BADMINTON_PLACEHOLDER;
 
   const handleLoginAttempt = useCallback(async (u: string, p: string) => {
     await auth.login(u, p);
@@ -343,7 +358,7 @@ export default function App() {
                   gap: "6px",
                   flexWrap: "wrap",
                 }}>
-                  <span>{libraryRegions.length} library · {liveGymRegions.length} gym</span>
+                  <span>{libraryRegions.length} library · {liveGymRegions.length} gym · {liveBadmintonRegions.length} badminton</span>
                   <span style={{ color: "#2A2E42" }}>·</span>
                   {connected
                     ? <span style={{ color: "#22C55E" }}>Live</span>
@@ -424,7 +439,7 @@ export default function App() {
             {/* Gym Section */}
             <SectionHeader label="Gym" count={liveGymRegions.length} accent="#06B6D4" />
             {isMobile ? (
-              <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: "12px", marginBottom: "32px" }}>
                 {gymRegions.map((r, i) => (
                   <div key={r.id} style={{ animation: `fadeUp 0.3s ease ${i * 0.06}s both` }}>
                     <RegionCard region={r} mobile />
@@ -437,8 +452,34 @@ export default function App() {
                 gridTemplateColumns: "repeat(2, minmax(280px, 1fr))",
                 gap: "16px",
                 maxWidth: "900px",
+                marginBottom: "40px",
               }}>
                 {gymRegions.map((r, i) => (
+                  <div key={r.id} style={{ animation: `fadeUp 0.3s ease ${i * 0.07}s both` }}>
+                    <RegionCard region={r} />
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Badminton Section */}
+            <SectionHeader label="Badminton" count={liveBadmintonRegions.length} accent="#F59E0B" />
+            {isMobile ? (
+              <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                {badmintonRegions.map((r, i) => (
+                  <div key={r.id} style={{ animation: `fadeUp 0.3s ease ${i * 0.06}s both` }}>
+                    <RegionCard region={r} mobile />
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(2, minmax(280px, 1fr))",
+                gap: "16px",
+                maxWidth: "900px",
+              }}>
+                {badmintonRegions.map((r, i) => (
                   <div key={r.id} style={{ animation: `fadeUp 0.3s ease ${i * 0.07}s both` }}>
                     <RegionCard region={r} />
                   </div>
