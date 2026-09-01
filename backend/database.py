@@ -18,16 +18,15 @@ async def get_db():
 
 async def init_db():
     import models  # noqa: F401 — registers ORM models with Base.metadata
+    import sqlalchemy
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-        # Safe migration — adds reserved_count if table existed before this column was introduced
-        await conn.execute(
-            __import__("sqlalchemy").text(
-                "ALTER TABLE count_logs ADD COLUMN IF NOT EXISTS reserved_count INTEGER DEFAULT 0"
-            )
-        )
-        await conn.execute(
-            __import__("sqlalchemy").text(
-                "ALTER TABLE regions ADD COLUMN IF NOT EXISTS section VARCHAR DEFAULT 'library'"
-            )
-        )
+        # Safe migration — try/except handles both SQLite (no IF NOT EXISTS) and PostgreSQL
+        for sql in [
+            "ALTER TABLE count_logs ADD COLUMN reserved_count INTEGER DEFAULT 0",
+            "ALTER TABLE regions ADD COLUMN section VARCHAR DEFAULT 'library'",
+        ]:
+            try:
+                await conn.execute(sqlalchemy.text(sql))
+            except Exception:
+                pass  # column already exists
