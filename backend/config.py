@@ -10,6 +10,15 @@ class Settings(BaseSettings):
     ADMIN_PASSWORD: str = "bits2024"
     DATABASE_URL: str = "sqlite+aiosqlite:///./occupancy.db"
     CAMERA_OFFLINE_THRESHOLD_SECONDS: int = 12
+    # Shared secret the on-prem counter must send in the X-API-Key header when
+    # POSTing counts. Leave empty to disable the check (not recommended in prod).
+    DEVICE_API_KEY: str = ""
+    # Comma-separated list of browser origins allowed to call the API (CORS).
+    # Set to your deployed frontend URL(s). "*" allows any origin (dev only).
+    ALLOWED_ORIGINS: str = "https://bits-library.netlify.app,http://localhost:5173,http://localhost:3000"
+    # Admin-login brute-force protection.
+    ADMIN_LOGIN_MAX_ATTEMPTS: int = 5
+    ADMIN_LOGIN_LOCKOUT_SECONDS: int = 300
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
