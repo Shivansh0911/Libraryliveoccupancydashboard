@@ -10,6 +10,9 @@ from dashboard import build_dashboard_state
 from routes.regions import router as regions_router
 from routes.counts import router as counts_router
 from routes.admin import router as admin_router
+from config import get_settings
+
+settings = get_settings()
 
 
 async def offline_heartbeat():
@@ -36,10 +39,13 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Campus Library Occupancy Dashboard", lifespan=lifespan)
 
+_origins = [o.strip() for o in settings.ALLOWED_ORIGINS.split(",") if o.strip()]
+_allow_all = _origins == ["*"]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=_origins,
+    # credentials can't be combined with a wildcard origin per the CORS spec
+    allow_credentials=not _allow_all,
     allow_methods=["*"],
     allow_headers=["*"],
 )

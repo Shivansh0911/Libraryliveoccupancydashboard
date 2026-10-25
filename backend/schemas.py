@@ -1,28 +1,28 @@
 from datetime import datetime
 from typing import Optional, Literal
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class RegionCreate(BaseModel):
-    name: str
-    camera_id: str
-    capacity: int
+    name: str = Field(min_length=1)
+    camera_id: str = Field(min_length=1, pattern=r"^[A-Za-z0-9_-]+$")
+    capacity: int = Field(gt=0)
     description: Optional[str] = None
     section: str = "library"
 
 
 class RegionUpdate(BaseModel):
-    name: Optional[str] = None
-    camera_id: Optional[str] = None
-    capacity: Optional[int] = None
+    name: Optional[str] = Field(default=None, min_length=1)
+    camera_id: Optional[str] = Field(default=None, min_length=1, pattern=r"^[A-Za-z0-9_-]+$")
+    capacity: Optional[int] = Field(default=None, gt=0)
     description: Optional[str] = None
     section: Optional[str] = None
 
 
 class CountUpdatePayload(BaseModel):
-    camera_id: str
-    count: int
-    reserved: int = 0
+    camera_id: str = Field(min_length=1, pattern=r"^[A-Za-z0-9_-]+$")
+    count: int = Field(ge=0)
+    reserved: int = Field(default=0, ge=0)
     timestamp: Optional[datetime] = None
 
 

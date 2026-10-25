@@ -20,6 +20,9 @@ def compute_status(
     age = (datetime.utcnow() - last_updated).total_seconds()
     if age > threshold:
         return "offline"
+    if capacity <= 0:
+        # Misconfigured region (no capacity) — don't divide by zero.
+        return "free" if count == 0 else "full"
     pct = count / capacity * 100
     if pct < 40:
         return "free"
