@@ -1,19 +1,25 @@
 # Library Counter — on-premise program (for institute IT)
 
-This small program runs **on a computer kept inside the institute's network**. It
-connects to the library cameras, counts how many people are in each area, and
-sends **only that number** to the occupancy dashboard. No video is ever stored,
-shown, or sent anywhere.
+This small program runs **on a computer the institute provides**. It connects to
+the library cameras, counts how many people are in each area, and sends **only
+that number** to the occupancy dashboard. No video is ever stored, shown, or sent
+anywhere. It works on **any internet connection** — it only needs to reach the
+camera source you enter and the dashboard URL; it makes no assumption about the
+local network.
 
 ```
- Camera (on your network)
+ Camera (access provided by the institute)
       │  looks
       ▼
- This program (on your machine)  ──►  counts people, discards the frame
+ This program (on the institute's machine)  ──►  counts people, discards the frame
       │
       ▼  sends only  { "camera_id": "cam_02", "count": 34 }   (over HTTPS, with a device key)
  Cloud dashboard  ──►  students see Free / Moderate / Full
 ```
+
+> You can see exactly what leaves this machine any time, in the portal's
+> **"What leaves this machine"** page — it lists every outgoing message (all just
+> numbers). Nothing else is ever sent.
 
 - Camera links and passwords are entered in a **local portal** and stored
   **encrypted on this machine only** (`data/cameras.enc`). They never leave it.
