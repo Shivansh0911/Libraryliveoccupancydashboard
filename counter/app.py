@@ -18,9 +18,11 @@ from fastapi import FastAPI, Request, Form
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from starlette.middleware.sessions import SessionMiddleware
 
+import json
+
 import store
 from config import get_settings
-from counter_engine import manager
+from counter_engine import manager, get_outbound
 
 settings = get_settings()
 
@@ -265,6 +267,7 @@ def _dashboard(request: Request) -> str:
       <header class="bar">
         <h1>Library Counter <span class="muted" style="font-size:.9rem">· local portal</span></h1>
         <div style="display:flex;gap:8px">
+          <a class="btn ghost sm" href="/outbound">What leaves this machine</a>
           <a class="btn ghost sm" href="/account">Account</a>
           <a class="btn ghost sm" href="/logout">Sign out</a>
         </div>
@@ -349,6 +352,31 @@ def _account_page(current_email: str, msg: str = "", ok: bool = False) -> str:
           <div style="margin-top:16px"><button class="btn" type="submit">Update credentials</button></div>
         </form>
       </div>""")
+
+
+@app.get("/outbound", response_class=HTMLResponse)
+def outbound_page(request: Request):
+    if not _logged_in(request):
+        return RedirectResponse("/login", status_code=303)
+    rows = ""
+    for e in get_outbound(60):
+        state = '<span class="pill on">sent</span>' if e["ok"] else '<span class="pill err">failed</span>'
+        payload = html.escape(json.dumps(e["body"]))
+        rows += (f'<tr><td class="muted">{html.escape(e["at"])}</td><td>{state}</td>'
+                 f'<td><code>{payload}</code></td><td class="muted">{html.escape(e["detail"])}</td></tr>')
+    if not rows:
+        rows = '<tr><td colspan="4" class="muted" style="padding:20px">Nothing sent yet. Start a camera to see the outgoing numbers here.</td></tr>'
+    body = f"""
+      <header class="bar"><h1>What leaves this machine</h1><a class="btn ghost sm" href="/">Back</a></header>
+      <div class="card">
+        <p class="muted" style="margin-top:0">This is the <strong>complete</strong> list of everything this computer sends to the cloud — the exact messages, newest first. Each one carries only a count. <strong>No image or video is ever sent.</strong></p>
+        <table>
+          <thead><tr><th>Time</th><th>Status</th><th>Exact message sent</th><th>Result</th></tr></thead>
+          <tbody>{rows}</tbody>
+        </table>
+      </div>
+      <p class="muted" style="font-size:.85rem">Showing the most recent 60 messages. Refresh to update.</p>"""
+    return HTMLResponse(_page("What leaves this machine", body))
 
 
 @app.get("/account", response_class=HTMLResponse)

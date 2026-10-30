@@ -8,14 +8,29 @@ settings = get_settings()
 
 
 def _normalize_db_url(url: str) -> str:
-    """Accept the URL Railway/Heroku hand out and make it async-driver ready.
+    """Accept the URL a host hands out and make it async-driver ready.
 
     - postgres:// or postgresql://  ->  postgresql+asyncpg://
-    - drop libpq's ?sslmode=... which asyncpg does not understand
+    - translate libpq's ?sslmode=require (Neon/Supabase/Render external) into
+      asyncpg's ?ssl=require, and drop params asyncpg doesn't understand.
+    Render's internal database URL has no query string and is left as-is.
     """
     url = re.sub(r"^postgres(ql)?://", "postgresql+asyncpg://", url)
-    url = re.sub(r"[?&]sslmode=\w+", "", url)
-    return url
+    if "?" not in url:
+        return url
+    base, query = url.split("?", 1)
+    kept, want_ssl = [], False
+    for part in filter(None, query.split("&")):
+        key, _, val = part.partition("=")
+        if key == "sslmode":
+            want_ssl = val not in ("", "disable")
+        elif key in ("channel_binding",):
+            continue  # not understood by asyncpg
+        else:
+            kept.append(part)
+    if want_ssl:
+        kept.append("ssl=require")
+    return base + ("?" + "&".join(kept) if kept else "")
 
 
 engine = create_async_engine(_normalize_db_url(settings.DATABASE_URL), echo=False)

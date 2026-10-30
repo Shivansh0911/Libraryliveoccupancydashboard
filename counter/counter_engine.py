@@ -8,6 +8,7 @@ discarded. No frame is ever written to disk, shown, or transmitted.
 import time
 import random
 import threading
+from collections import deque
 from datetime import datetime, timezone
 
 import httpx
@@ -15,6 +16,21 @@ import httpx
 from config import get_settings
 
 settings = get_settings()
+
+# Rolling record of exactly what this machine sends out — used by the portal's
+# "Outbound log" so IT can see with their own eyes that only numbers leave.
+_outbound = deque(maxlen=100)
+_outbound_lock = threading.Lock()
+
+
+def record_outbound(entry: dict) -> None:
+    with _outbound_lock:
+        _outbound.appendleft(entry)
+
+
+def get_outbound(limit: int = 50) -> list[dict]:
+    with _outbound_lock:
+        return list(_outbound)[:limit]
 
 # YOLO is loaded lazily (and only once) the first time a real camera needs it,
 # so the portal and "test" cameras work without torch installed.
@@ -149,25 +165,29 @@ class CameraWorker(threading.Thread):
         headers = {}
         if settings.DEVICE_API_KEY:
             headers["X-API-Key"] = settings.DEVICE_API_KEY
+        # This body is the ENTIRE payload that leaves the machine — only numbers.
+        body = {
+            "camera_id": self.camera_id,
+            "count": count,
+            "reserved": reserved,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+        sent_at = datetime.now().strftime("%H:%M:%S")
         try:
             r = client.post(
                 f"{settings.BACKEND_URL.rstrip('/')}/count/update",
-                json={
-                    "camera_id": self.camera_id,
-                    "count": count,
-                    "reserved": reserved,
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
-                },
-                headers=headers,
-                timeout=5.0,
+                json=body, headers=headers, timeout=5.0,
             )
             ok = r.status_code == 200
             self.status["last_post_ok"] = ok
             self.status["error"] = None if ok else f"backend returned {r.status_code}"
+            record_outbound({"at": sent_at, "body": body, "ok": ok,
+                             "detail": "200 OK" if ok else f"HTTP {r.status_code}"})
             return ok
         except Exception as exc:
             self.status["last_post_ok"] = False
             self.status["error"] = f"send failed: {exc}"
+            record_outbound({"at": sent_at, "body": body, "ok": False, "detail": f"send failed: {exc}"})
             return False
 
     def _record(self, count, reserved):
