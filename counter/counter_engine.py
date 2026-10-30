@@ -5,17 +5,29 @@ Key privacy property: a frame is read into memory, counted, and immediately
 discarded. No frame is ever written to disk, shown, or transmitted.
 """
 
+import os
 import time
 import random
 import threading
 from collections import deque
 from datetime import datetime, timezone
+from pathlib import Path
+
+# Put the detection library (ultralytics) in offline mode BEFORE it is imported:
+# otherwise it does DNS "am I online?" lookups at import and sends anonymous usage
+# analytics on every prediction. With this set, the only connection this program
+# makes is to our dashboard (plus a one-time model download if the file is missing).
+os.environ["YOLO_OFFLINE"] = "1"
 
 import httpx
 
+import config as _cfg
 from config import get_settings
 
 settings = get_settings()
+
+# Official YOLOv8 weights, used only if the model file isn't already in this folder.
+_MODEL_URL = "https://github.com/ultralytics/assets/releases/download/v8.3.0/{name}"
 
 # Rolling record of exactly what this machine sends out — used by the portal's
 # "Outbound log" so IT can see with their own eyes that only numbers leave.
@@ -42,20 +54,36 @@ _infer_lock = threading.Lock()  # YOLO inference is not thread-safe; serialize i
 _PERSON, _LAPTOP = 0, 63
 
 
+def _model_path() -> Path:
+    """Model file location — a bare name resolves against this folder, so it
+    works whatever the working directory is (e.g. when started as a service)."""
+    p = Path(settings.MODEL_NAME)
+    return p if p.is_absolute() else Path(_cfg.BASE_DIR) / p
+
+
+def _ensure_model_file(path: Path) -> None:
+    """Download the official weights once if they aren't here yet."""
+    if path.exists() and path.stat().st_size > 1_000_000:
+        return
+    url = _MODEL_URL.format(name=path.name)
+    print(f"[counter] model file not found - downloading {path.name} once from {url}")
+    tmp = path.with_suffix(path.suffix + ".part")
+    with httpx.stream("GET", url, follow_redirects=True, timeout=180.0) as r:
+        r.raise_for_status()
+        with open(tmp, "wb") as f:
+            for chunk in r.iter_bytes():
+                f.write(chunk)
+    tmp.replace(path)
+
+
 def load_model():
     global _model
     with _model_lock:
         if _model is None:
-            from pathlib import Path
+            path = _model_path()
+            _ensure_model_file(path)
             from ultralytics import YOLO
-            import config as _cfg
-            # Resolve a bare model filename against this folder, so it works no
-            # matter what the working directory is (e.g. started as a service).
-            name = settings.MODEL_NAME
-            local = Path(_cfg.BASE_DIR) / name
-            if not Path(name).is_absolute() and local.exists():
-                name = str(local)
-            _model = YOLO(name)
+            _model = YOLO(str(path))
     return _model
 
 

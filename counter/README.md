@@ -31,24 +31,32 @@ local network.
 
 ## Setup (one time)
 
-1. **Install Python 3.10+** and then the dependencies:
-   ```bash
-   pip install -r requirements.txt
-   ```
-   (This includes the YOLO model library. The model file `yolov8s.pt` downloads
-   automatically on first run; on an offline machine, copy it into this folder.)
+1. **Put this folder on a short path**, e.g. `C:\library-counter`. Windows limits
+   file paths to 260 characters and the detection engine has deeply nested files,
+   so a deep location (like inside OneDrive\Desktop\...) breaks its install.
+   `install.bat` checks this for you.
 
-2. **Create the config file:** copy `.env.example` to `.env` and fill in:
+2. **Install Python 3.11 or 3.12** (tick "Add Python to PATH"), then
+   **double-click `install.bat`**. It creates a private environment (`venv`),
+   installs the CPU build of the detection engine with retries for slow
+   connections, installs the rest, and creates `.env`. Safe to run again.
+   (Manual alternative: `python -m venv venv`, then
+   `venv\Scripts\pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu`
+   and `venv\Scripts\pip install -r requirements.txt`.)
+   The model file `yolov8s.pt` is included; if missing it downloads on first run.
+
+3. **Fill in the config file** `.env`:
    - `PORTAL_PASSWORD` — a strong password for the local portal login.
    - `DEVICE_API_KEY` — the key shared with the dashboard backend (we provide it,
      or generate one and give it to us to set on the backend).
    - `PORTAL_EMAIL` — the IT email used to sign in.
+   - `BACKEND_URL` — the dashboard backend URL.
 
-3. **Start it:**
+4. **Start it:**
    - Windows: double-click `run.bat`
    - Linux/macOS: `./run.sh`  (or `python app.py`)
 
-4. Open **http://127.0.0.1:8900** in a browser on that machine and sign in.
+5. Open **http://127.0.0.1:8900** in a browser on that machine and sign in.
    The email/password from `.env` is the initial login; it can be changed any
    time from the portal's **Account** page (stored hashed, never in plain text).
 

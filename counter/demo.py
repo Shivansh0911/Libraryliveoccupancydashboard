@@ -12,6 +12,7 @@ Run:  python demo.py      then open http://127.0.0.1:8901
 
 import re
 import threading
+from contextlib import asynccontextmanager
 
 import cv2
 import httpx
@@ -19,7 +20,7 @@ import numpy as np
 import uvicorn
 from fastapi import FastAPI, Form, Request
 from fastapi.concurrency import run_in_threadpool
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 from starlette.middleware.sessions import SessionMiddleware
 
 import app as portal  # reuse the tested login, throttle and page styling
@@ -29,7 +30,24 @@ from counter_engine import count_reserved_seats, detect, get_outbound, load_mode
 
 settings = get_settings()
 
-demo = FastAPI(title="Library Counter — Demo v1.0")
+def _load_model_in_background():
+    def _load():
+        try:
+            load_model()
+        except Exception as exc:  # shown to the user on the first count instead
+            print(f"[demo] model load failed: {exc}")
+
+    threading.Thread(target=_load, daemon=True).start()
+
+
+@asynccontextmanager
+async def _lifespan(_app):
+    # Load YOLO in the background so the first count isn't slow.
+    _load_model_in_background()
+    yield
+
+
+demo = FastAPI(title="Library Counter — Demo v1.0", lifespan=_lifespan)
 demo.add_middleware(
     SessionMiddleware,
     secret_key=settings.SESSION_SECRET,
@@ -76,6 +94,11 @@ def login(request: Request, email: str = Form(...), password: str = Form(...)):
 def logout(request: Request):
     request.session.clear()
     return RedirectResponse("/login", status_code=303)
+
+
+@demo.get("/favicon.ico", include_in_schema=False)
+def favicon():
+    return Response(status_code=204)
 
 
 # The same "What leaves this machine" page as the main portal.
@@ -157,18 +180,6 @@ async def api_infer(request: Request, camera_id: str, reserved: int = 1):
         "ok": ok,
         "detail": detail,
     }
-
-
-@demo.on_event("startup")
-def _warm_model():
-    # Load YOLO in the background so the first count isn't slow.
-    def _load():
-        try:
-            load_model()
-        except Exception as exc:  # shown to the user on the first count instead
-            print(f"[demo] model load failed: {exc}")
-
-    threading.Thread(target=_load, daemon=True).start()
 
 
 # ── the demo page ────────────────────────────────────────────────────────────
@@ -392,6 +403,7 @@ def home(request: Request):
 if __name__ == "__main__":
     # Always localhost: browsers only allow camera access on a secure origin,
     # and http://127.0.0.1 counts as one.
-    print(f"\n  Library Counter — Demo v1.0  →  http://127.0.0.1:{settings.DEMO_PORT}")
-    print(f"  Sending counts to             →  {settings.BACKEND_URL}\n")
+    # ASCII only: Windows consoles/redirected output may not encode arrows etc.
+    print(f"\n  Library Counter - Demo v1.0  ->  http://127.0.0.1:{settings.DEMO_PORT}")
+    print(f"  Sending counts to            ->  {settings.BACKEND_URL}\n")
     uvicorn.run(demo, host="127.0.0.1", port=settings.DEMO_PORT, log_level="warning")

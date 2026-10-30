@@ -12,10 +12,11 @@ import time
 import hmac
 import html
 import threading
+from contextlib import asynccontextmanager
 
 import uvicorn
 from fastapi import FastAPI, Request, Form
-from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse, Response
 from starlette.middleware.sessions import SessionMiddleware
 
 import json
@@ -26,7 +27,15 @@ from counter_engine import manager, get_outbound
 
 settings = get_settings()
 
-app = FastAPI(title="Library Counter — Local Portal")
+@asynccontextmanager
+async def _lifespan(_app):
+    # Resume whatever was running before the last shutdown — "set and forget".
+    manager.start_all([c for c in store.load_cameras() if c.get("enabled")])
+    yield
+    manager.stop_all()
+
+
+app = FastAPI(title="Library Counter — Local Portal", lifespan=_lifespan)
 # same_site="strict" blocks cross-site form POSTs (CSRF); session expires after max_age.
 app.add_middleware(
     SessionMiddleware,
@@ -177,7 +186,8 @@ def _camera_form(cam: dict | None = None) -> str:
                 f'<p class="muted" style="font-size:.85rem">Camera ID: <code>{val("camera_id")}</code> (fixed)</p>'
                 if editing else
                 '<label>Camera ID <span class="muted">(must match the zone\'s camera_id in the cloud admin)</span></label>'
-                '<input name="camera_id" placeholder="cam_02" pattern="[A-Za-z0-9_-]+" required>')
+                '<input name="camera_id" placeholder="cam_02" pattern="[A-Za-z0-9_\\-]+" '
+                'title="Letters, numbers, - and _ only (no spaces)" required>')
     mode_field = f'<input type="hidden" name="mode" value="{"edit" if editing else "new"}">'
     return f"""
       <div class="card">
@@ -304,6 +314,11 @@ def _dashboard(request: Request) -> str:
 
 
 # ── routes ───────────────────────────────────────────────────────────────────
+@app.get("/favicon.ico", include_in_schema=False)
+def favicon():
+    return Response(status_code=204)
+
+
 @app.get("/login", response_class=HTMLResponse)
 def login_page(request: Request):
     if _logged_in(request):
@@ -541,18 +556,9 @@ def api_status(request: Request):
     return JSONResponse(manager.status())
 
 
-@app.on_event("startup")
-def _auto_start():
-    # Resume whatever was running before the last shutdown — "set and forget".
-    manager.start_all([c for c in store.load_cameras() if c.get("enabled")])
-
-
-@app.on_event("shutdown")
-def _cleanup():
-    manager.stop_all()
-
 
 if __name__ == "__main__":
-    print(f"\n  Library Counter portal  →  http://{settings.PORTAL_HOST}:{settings.PORTAL_PORT}")
-    print(f"  Sending counts to       →  {settings.BACKEND_URL}\n")
+    # ASCII only: Windows consoles/redirected output may not encode arrows etc.
+    print(f"\n  Library Counter portal  ->  http://{settings.PORTAL_HOST}:{settings.PORTAL_PORT}")
+    print(f"  Sending counts to       ->  {settings.BACKEND_URL}\n")
     uvicorn.run(app, host=settings.PORTAL_HOST, port=settings.PORTAL_PORT, log_level="warning")

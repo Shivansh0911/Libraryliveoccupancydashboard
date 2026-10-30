@@ -18,6 +18,24 @@ if %errorlevel% neq 0 (
   exit /b 1
 )
 
+REM --- Windows limits file paths to 260 characters unless "long paths" are on.
+REM     The detection engine has deeply nested files, so the folder must sit on
+REM     a short path, or its installation breaks part-way.
+set "LONGPATHS=0"
+for /f "tokens=3" %%a in ('reg query "HKLM\SYSTEM\CurrentControlSet\Control\FileSystem" /v LongPathsEnabled 2^>nul ^| find "LongPathsEnabled"') do set "LONGPATHS=%%a"
+if "%LONGPATHS%"=="0x1" goto :pathok
+python -c "import os,sys; sys.exit(0 if len(os.getcwd()) <= 60 else 1)"
+if not errorlevel 1 goto :pathok
+echo.
+echo   This folder is too deep for Windows - its path is longer than 60 characters:
+echo   "%CD%"
+echo   Move the counter folder to a short location such as C:\library-counter
+echo   and run install.bat again from there.
+echo.
+pause
+exit /b 1
+:pathok
+
 if not exist "venv\Scripts\python.exe" (
   echo Creating a private environment...
   python -m venv venv
