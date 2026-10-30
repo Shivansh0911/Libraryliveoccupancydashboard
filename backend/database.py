@@ -61,6 +61,10 @@ async def init_db():
     for sql in [
         "ALTER TABLE count_logs ADD COLUMN reserved_count INTEGER DEFAULT 0",
         "ALTER TABLE regions ADD COLUMN section VARCHAR DEFAULT 'library'",
+        # The dashboard asks for the latest count per region every few seconds;
+        # without this index that query slows down as count_logs grows.
+        "CREATE INDEX IF NOT EXISTS ix_count_logs_region_received "
+        "ON count_logs (region_id, received_at)",
     ]:
         try:
             async with engine.begin() as conn:

@@ -11,6 +11,10 @@ import { useAuth } from "../hooks/useAuth";
 
 type View = "dashboard" | "login" | "admin";
 
+// When a real backend is configured, never show simulated numbers — only real
+// data or an honest "connecting / offline" state. Simulation is for local dev only.
+const IS_LIVE = Boolean(import.meta.env.VITE_API_BASE_URL);
+
 const SEED: Region[] = [
   {
     id: "r1",
@@ -75,6 +79,16 @@ const BADMINTON_PLACEHOLDER: Region[] = [
     section: "badminton",
   },
 ];
+
+// Shown on the live site until the WebSocket delivers real data.
+const CONNECTING_SEED: Region[] = SEED.map(r => ({
+  ...r,
+  count: 0,
+  reserved: 0,
+  status: "offline" as const,
+  camOnline: false,
+  lastUpdated: "connecting…",
+}));
 
 function computeStatus(count: number, capacity: number): Region["status"] {
   const p = count / capacity;
@@ -177,9 +191,9 @@ export default function App() {
     return () => clearInterval(id);
   }, [connected, wsRegions]);
 
-  // Mock simulation — only runs when backend is offline
+  // Mock simulation — local dev only (no backend configured)
   const simulate = useCallback(() => {
-    if (connected) return;
+    if (connected || IS_LIVE) return;
     setMockRegions(prev =>
       prev.map(r => {
         if (offlineMode && r.id === "r4") return r;
@@ -193,7 +207,7 @@ export default function App() {
   }, [connected, offlineMode]);
 
   useEffect(() => {
-    const sim = connected ? undefined : setInterval(simulate, 5000);
+    const sim = connected || IS_LIVE ? undefined : setInterval(simulate, 5000);
     const counter = setInterval(() => setSecsSince(s => s + 1), 1000);
     return () => {
       if (sim) clearInterval(sim);
@@ -205,8 +219,11 @@ export default function App() {
     ? `${secsSince}s ago`
     : `${Math.floor(secsSince / 60)}m ago`;
 
-  // Use real data when connected, fall back to mock simulation
-  const baseRegions = connected && liveRegions.length > 0 ? liveRegions : mockRegions;
+  // Real data when connected. On the live site, an honest offline placeholder
+  // while connecting; mock simulation only in local dev.
+  const baseRegions = connected && liveRegions.length > 0
+    ? liveRegions
+    : IS_LIVE ? CONNECTING_SEED : mockRegions;
 
   const displayRegions = baseRegions.map(r =>
     offlineMode && r.id === "r4"
@@ -371,8 +388,8 @@ export default function App() {
                 </p>
               </div>
 
-              {/* Offline demo toggle — only shown when not on live backend */}
-              {!connected && (
+              {/* Offline demo toggle — local dev only, never on the live site */}
+              {!connected && !IS_LIVE && (
                 <button
                   onClick={() => setOfflineMode(p => !p)}
                   style={{

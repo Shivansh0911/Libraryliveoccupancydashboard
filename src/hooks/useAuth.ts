@@ -15,8 +15,15 @@ export function useAuth() {
       }
       throw new Error("Invalid credentials");
     } catch (err) {
-      // Backend unreachable — fall back to mock credentials for demo mode
       if (err instanceof TypeError) {
+        // Network failure. On the live site, say so — never fall back to a fake
+        // "demo" login whose changes silently go nowhere.
+        if (import.meta.env.VITE_API_BASE_URL) {
+          throw new Error(
+            "Can't reach the server. It may be waking up — wait about a minute and try again."
+          );
+        }
+        // Local dev without a backend: allow the offline demo login.
         if (u === "admin" && p === "bits2024") {
           setToken("demo-token");
           setUsername(u);

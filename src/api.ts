@@ -4,10 +4,24 @@ function authHeaders(token: string) {
   return { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
 }
 
+type ValidationItem = { loc?: (string | number)[]; msg?: string };
+
 async function checkOk(r: Response) {
   if (!r.ok) {
     const body = await r.json().catch(() => ({}));
-    throw new Error((body as { detail?: string }).detail ?? `HTTP ${r.status}`);
+    const detail = (body as { detail?: string | ValidationItem[] }).detail;
+    // FastAPI validation errors (422) come back as a list — make them readable.
+    if (Array.isArray(detail)) {
+      const msg = detail
+        .map(d => `${d.loc?.[d.loc.length - 1] ?? "field"}: ${d.msg ?? "invalid"}`)
+        .join("; ");
+      throw new Error(msg || `HTTP ${r.status}`);
+    }
+    // Expired/invalid JWT on an admin action (login errors keep their own message).
+    if (r.status === 401 && detail === "Could not validate credentials") {
+      throw new Error("Session expired — please log in again");
+    }
+    throw new Error(detail ?? `HTTP ${r.status}`);
   }
   return r.json();
 }

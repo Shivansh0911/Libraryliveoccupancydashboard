@@ -95,6 +95,7 @@ function AdminTableRow({ region, onEdit, isLast }: { region: Region; onEdit: () 
 export function AdminPanel({ regions, onUpdateRegions, token }: AdminPanelProps) {
   // editingRegion: null = closed, region with id "new-*" = creating, region with real id = editing
   const [editingRegion, setEditingRegion] = useState<Region | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [pingAges, setPingAges] = useState<Record<string, number>>(() =>
     Object.fromEntries(regions.map((r, i) => [r.id, i + 1]))
   );
@@ -132,14 +133,13 @@ export function AdminPanel({ regions, onUpdateRegions, token }: AdminPanelProps)
         } else {
           await updateRegion(parseInt(updated.id, 10), apiData, token);
         }
+        setSaveError(null);
         // WebSocket broadcast will update state automatically
-      } catch {
-        // API failed — update local state as fallback
-        if (isNew) {
-          onUpdateRegions([...regions, { ...updated, id: `r${Date.now()}` }]);
-        } else {
-          onUpdateRegions(regions.map(r => r.id === updated.id ? updated : r));
-        }
+      } catch (err) {
+        // Don't pretend it saved — tell the admin exactly what happened.
+        setSaveError(
+          `Couldn't save "${updated.name || "region"}": ${err instanceof Error ? err.message : "unknown error"}. Nothing was changed on the server.`
+        );
       }
     } else {
       // Demo mode — update local state only
@@ -156,9 +156,12 @@ export function AdminPanel({ regions, onUpdateRegions, token }: AdminPanelProps)
     if (token && !token.startsWith("demo-")) {
       try {
         await deleteRegion(parseInt(regionId, 10), token);
+        setSaveError(null);
         // WebSocket broadcast will update state
-      } catch {
-        onUpdateRegions(regions.filter(r => r.id !== regionId));
+      } catch (err) {
+        setSaveError(
+          `Couldn't delete the region: ${err instanceof Error ? err.message : "unknown error"}. Nothing was changed on the server.`
+        );
       }
     } else {
       onUpdateRegions(regions.filter(r => r.id !== regionId));
@@ -184,6 +187,34 @@ export function AdminPanel({ regions, onUpdateRegions, token }: AdminPanelProps)
 
   return (
     <div style={{ flex: 1, overflow: "auto", padding: "clamp(24px, 4vw, 48px)", display: "flex", flexDirection: "column", gap: "40px" }}>
+
+      {saveError && (
+        <div
+          role="alert"
+          style={{
+            backgroundColor: "#2D0707",
+            border: "1px solid #EF4444",
+            borderRadius: "10px",
+            padding: "12px 16px",
+            color: "#FCA5A5",
+            fontFamily: "'DM Sans', sans-serif",
+            fontSize: "14px",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "flex-start",
+            gap: "12px",
+          }}
+        >
+          <span>{saveError}</span>
+          <button
+            onClick={() => setSaveError(null)}
+            aria-label="Dismiss"
+            style={{ background: "none", border: "none", color: "#FCA5A5", cursor: "pointer", fontSize: "18px", lineHeight: 1 }}
+          >
+            ×
+          </button>
+        </div>
+      )}
 
       {/* ── Section 1: Regions & Camera Config ── */}
       <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
