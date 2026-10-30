@@ -49,14 +49,21 @@ async def get_db():
 async def init_db():
     import models  # noqa: F401 — registers ORM models with Base.metadata
     import sqlalchemy
+
+    # Create the tables first and commit this on its own.
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-        # Safe migration — try/except handles both SQLite (no IF NOT EXISTS) and PostgreSQL
-        for sql in [
-            "ALTER TABLE count_logs ADD COLUMN reserved_count INTEGER DEFAULT 0",
-            "ALTER TABLE regions ADD COLUMN section VARCHAR DEFAULT 'library'",
-        ]:
-            try:
+
+    # Legacy migrations for pre-existing databases. Each runs in its OWN
+    # transaction: on PostgreSQL a failed statement aborts its whole transaction,
+    # so sharing one with create_all would roll the tables back. Isolating each
+    # ALTER means a "column already exists" failure is harmless.
+    for sql in [
+        "ALTER TABLE count_logs ADD COLUMN reserved_count INTEGER DEFAULT 0",
+        "ALTER TABLE regions ADD COLUMN section VARCHAR DEFAULT 'library'",
+    ]:
+        try:
+            async with engine.begin() as conn:
                 await conn.execute(sqlalchemy.text(sql))
-            except Exception:
-                pass  # column already exists
+        except Exception:
+            pass  # column already exists
