@@ -2,7 +2,7 @@
 ### BITS Hyderabad · Real-time occupancy tracker for library, gym, and badminton courts, powered by computer vision
 
 [![Live Demo](https://img.shields.io/badge/Live-bits--library.netlify.app-6366F1?style=flat-square)](https://bits-library.netlify.app)
-[![Backend](https://img.shields.io/badge/API-Railway-0B0D0E?style=flat-square)](https://library-backendd-production.up.railway.app/docs)
+[![Backend](https://img.shields.io/badge/API-Render-46E3B7?style=flat-square)](https://library-backend-x1hu.onrender.com/docs)
 [![License](https://img.shields.io/badge/license-MIT-green?style=flat-square)](LICENSE)
 
 ---
@@ -31,7 +31,7 @@ React Dashboard  ←  live UI for students + admin panel
 | Service | URL |
 |---------|-----|
 | Student Dashboard | https://bits-library.netlify.app |
-| Backend API Docs | https://library-backendd-production.up.railway.app/docs |
+| Backend API Docs | https://library-backend-x1hu.onrender.com/docs |
 
 ---
 

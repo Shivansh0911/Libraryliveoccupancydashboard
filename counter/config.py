@@ -15,7 +15,7 @@ BASE_DIR = Path(__file__).resolve().parent
 
 class Settings(BaseSettings):
     # ── Cloud backend (where only the counts are sent) ──────────────────────
-    BACKEND_URL: str = "https://library-backendd-production.up.railway.app"
+    BACKEND_URL: str = "https://library-backend-x1hu.onrender.com"
     # Shared secret with the backend. MUST match the backend's DEVICE_API_KEY.
     DEVICE_API_KEY: str = ""
 
