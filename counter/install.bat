@@ -2,7 +2,7 @@
 REM ============================================================================
 REM  One-time setup for the Library Counter. Double-click this file.
 REM  Creates a private Python environment (venv) and installs everything.
-REM  Safe to run again — it picks up where it left off.
+REM  Safe to run again - it picks up where it left off.
 REM ============================================================================
 setlocal
 cd /d "%~dp0"
@@ -41,7 +41,7 @@ if errorlevel 1 goto :fail
 if not exist ".env" (
   copy ".env.example" ".env" >nul
   echo.
-  echo   Created .env — open it in Notepad and fill in PORTAL_EMAIL, PORTAL_PASSWORD,
+  echo   Created .env - open it in Notepad and fill in PORTAL_EMAIL, PORTAL_PASSWORD,
   echo   DEVICE_API_KEY and BACKEND_URL before starting.
 )
 
@@ -55,7 +55,7 @@ exit /b 0
 
 :fail
 echo.
-echo   Installation did not finish — usually a slow or blocked internet connection.
+echo   Installation did not finish - usually a slow or blocked internet connection.
 echo   Just run install.bat again; already-downloaded parts are kept.
 echo.
 pause
