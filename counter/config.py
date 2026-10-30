@@ -37,6 +37,10 @@ class Settings(BaseSettings):
     LOGIN_LOCKOUT_SECONDS: int = 300   # how long the lockout lasts
     SESSION_MAX_AGE: int = 28800       # portal session lifetime (8 hours)
 
+    # ── Demo v1.0 (browser webcam) ──────────────────────────────────────────
+    DEMO_PORT: int = 8901
+    DEMO_CAMERA_ID: str = "cam_01"     # zone the demo counts for, by default
+
     # ── Local storage ───────────────────────────────────────────────────────
     DATA_DIR: str = str(BASE_DIR / "data")
 

@@ -66,6 +66,19 @@ In the portal, for each library area add a camera with:
 Click **Start** on a camera (or **Start all**). The live count appears in the
 table and on the student dashboard. It reconnects on its own if a camera drops.
 
+## Demo v1.0 — try it with this computer's webcam
+
+For a quick demonstration without CCTV access, run the demo version:
+
+- Windows: double-click `run-demo.bat`  (or `python demo.py`)
+- Open **http://127.0.0.1:8901** in Chrome/Edge and sign in (same email/password).
+- Pick a zone, click **Start camera**, allow camera access when the browser asks.
+
+The video stays on this screen. Every 2 seconds one still frame is counted on
+this same computer and thrown away; only the number goes to the dashboard. The
+page shows the detected boxes, the count, and a live table of exactly what was
+sent. Tick **Privacy view** to hide the video and show only what the system sees.
+
 ## Run it permanently (recommended — set and forget)
 
 So it keeps running after the machine is restarted or switched off/on, and

@@ -101,23 +101,56 @@ def count_reserved_seats(person_boxes: list, object_boxes: list) -> int:
     return len(object_boxes) - len(assigned)
 
 
-def count_people_and_reserved(frame, detect_reserved: bool = True) -> tuple[int, int]:
-    """Return (people_count, reserved_seats). The frame is used only here."""
+def detect(frame, detect_reserved: bool = True) -> tuple[list, list]:
+    """Run YOLO on one frame. Returns (person_boxes, laptop_boxes) as [x1,y1,x2,y2].
+
+    Only box coordinates come out of here — the frame itself is not kept.
+    """
     model = load_model()
     classes = [_PERSON, _LAPTOP] if detect_reserved else [_PERSON]
     with _infer_lock:
         results = model(
             frame, verbose=False, classes=classes, conf=settings.DETECT_CONFIDENCE
         )
-    boxes = results[0].boxes
-
     person_boxes, object_boxes = [], []
-    for box in boxes:
-        coords = box.xyxy[0].tolist()
+    for box in results[0].boxes:
+        coords = [round(v, 1) for v in box.xyxy[0].tolist()]
         (person_boxes if int(box.cls[0]) == _PERSON else object_boxes).append(coords)
+    return person_boxes, object_boxes
 
+
+def count_people_and_reserved(frame, detect_reserved: bool = True) -> tuple[int, int]:
+    """Return (people_count, reserved_seats). The frame is used only here."""
+    person_boxes, object_boxes = detect(frame, detect_reserved)
     reserved = count_reserved_seats(person_boxes, object_boxes) if detect_reserved else 0
     return len(person_boxes), reserved
+
+
+def send_count(client: httpx.Client, camera_id: str, count: int, reserved: int) -> tuple[bool, str, dict]:
+    """POST one count to the cloud. Returns (ok, detail, body_sent).
+
+    `body` is the ENTIRE payload that leaves the machine — only numbers and the
+    camera id. Every send is recorded for the "What leaves this machine" view.
+    """
+    headers = {"X-API-Key": settings.DEVICE_API_KEY} if settings.DEVICE_API_KEY else {}
+    body = {
+        "camera_id": camera_id,
+        "count": int(count),
+        "reserved": int(reserved),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    }
+    sent_at = datetime.now().strftime("%H:%M:%S")
+    try:
+        r = client.post(
+            f"{settings.BACKEND_URL.rstrip('/')}/count/update",
+            json=body, headers=headers, timeout=10.0,
+        )
+        ok = r.status_code == 200
+        detail = "200 OK" if ok else f"HTTP {r.status_code}"
+    except Exception as exc:
+        ok, detail = False, f"send failed: {exc}"
+    record_outbound({"at": sent_at, "body": body, "ok": ok, "detail": detail})
+    return ok, detail, body
 
 
 def build_source(cam: dict):
@@ -162,33 +195,10 @@ class CameraWorker(threading.Thread):
 
     # ── networking: only the number leaves the machine ──────────────────────
     def _post(self, client: httpx.Client, count: int, reserved: int) -> bool:
-        headers = {}
-        if settings.DEVICE_API_KEY:
-            headers["X-API-Key"] = settings.DEVICE_API_KEY
-        # This body is the ENTIRE payload that leaves the machine — only numbers.
-        body = {
-            "camera_id": self.camera_id,
-            "count": count,
-            "reserved": reserved,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-        }
-        sent_at = datetime.now().strftime("%H:%M:%S")
-        try:
-            r = client.post(
-                f"{settings.BACKEND_URL.rstrip('/')}/count/update",
-                json=body, headers=headers, timeout=5.0,
-            )
-            ok = r.status_code == 200
-            self.status["last_post_ok"] = ok
-            self.status["error"] = None if ok else f"backend returned {r.status_code}"
-            record_outbound({"at": sent_at, "body": body, "ok": ok,
-                             "detail": "200 OK" if ok else f"HTTP {r.status_code}"})
-            return ok
-        except Exception as exc:
-            self.status["last_post_ok"] = False
-            self.status["error"] = f"send failed: {exc}"
-            record_outbound({"at": sent_at, "body": body, "ok": False, "detail": f"send failed: {exc}"})
-            return False
+        ok, detail, _ = send_count(client, self.camera_id, count, reserved)
+        self.status["last_post_ok"] = ok
+        self.status["error"] = None if ok else detail
+        return ok
 
     def _record(self, count, reserved):
         self.status["last_count"] = count
