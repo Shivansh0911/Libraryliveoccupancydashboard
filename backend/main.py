@@ -55,6 +55,12 @@ app.include_router(counts_router, prefix="/count", tags=["counts"])
 app.include_router(admin_router, prefix="/admin", tags=["admin"])
 
 
+@app.api_route("/health", methods=["GET", "HEAD"], tags=["health"])
+async def health():
+    """Uptime-monitor ping (UptimeRobot sends HEAD). No DB hit, no data exposed."""
+    return {"status": "ok"}
+
+
 @app.websocket("/ws/dashboard")
 async def dashboard_ws(websocket: WebSocket, db: AsyncSession = Depends(get_db)):
     await manager.connect(websocket)
