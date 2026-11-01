@@ -406,4 +406,6 @@ if __name__ == "__main__":
     # ASCII only: Windows consoles/redirected output may not encode arrows etc.
     print(f"\n  Library Counter - Demo v1.0  ->  http://127.0.0.1:{settings.DEMO_PORT}")
     print(f"  Sending counts to            ->  {settings.BACKEND_URL}\n")
+    for p in portal.setup_problems():
+        print(f"  !! SETUP NEEDED: {p}")
     uvicorn.run(demo, host="127.0.0.1", port=settings.DEMO_PORT, log_level="warning")

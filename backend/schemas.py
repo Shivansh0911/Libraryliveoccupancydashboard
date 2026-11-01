@@ -20,9 +20,10 @@ class RegionUpdate(BaseModel):
 
 
 class CountUpdatePayload(BaseModel):
-    camera_id: str = Field(min_length=1, pattern=r"^[A-Za-z0-9_-]+$")
-    count: int = Field(ge=0)
-    reserved: int = Field(default=0, ge=0)
+    camera_id: str = Field(min_length=1, max_length=64, pattern=r"^[A-Za-z0-9_-]+$")
+    # upper bounds stop a leaked key from pushing absurd numbers to the dashboard
+    count: int = Field(ge=0, le=10000)
+    reserved: int = Field(default=0, ge=0, le=10000)
     timestamp: Optional[datetime] = None
 
 

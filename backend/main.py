@@ -27,8 +27,35 @@ async def offline_heartbeat():
             pass
 
 
+_PLACEHOLDER_SECRETS = {
+    "change-this-to-a-random-64-char-string",
+    "replace-with-a-random-64-char-string",
+}
+_PLACEHOLDER_PASSWORDS = {"bits2024", "change-this-password"}
+
+
+def _refuse_insecure_production_config() -> None:
+    """On a real (Postgres) deployment, refuse to boot with placeholder secrets.
+
+    These defaults are visible in the public repo, so running with them would let
+    anyone forge admin tokens, log in, or post counts.
+    """
+    if settings.DATABASE_URL.startswith("sqlite"):
+        return  # local dev
+    problems = []
+    if settings.SECRET_KEY in _PLACEHOLDER_SECRETS:
+        problems.append("SECRET_KEY is a placeholder")
+    if settings.ADMIN_PASSWORD in _PLACEHOLDER_PASSWORDS:
+        problems.append("ADMIN_PASSWORD is a placeholder")
+    if not settings.DEVICE_API_KEY:
+        problems.append("DEVICE_API_KEY is empty (counts would be accepted from anyone)")
+    if problems:
+        raise RuntimeError("Insecure production config: " + "; ".join(problems))
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    _refuse_insecure_production_config()
     await init_db()
     async with AsyncSessionLocal() as session:
         await seed_if_empty(session)

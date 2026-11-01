@@ -94,12 +94,32 @@ def _current_email() -> str:
     return auth["email"] if auth else settings.PORTAL_EMAIL.strip().lower()
 
 
+# The example password is published in the repo, so it never counts as "set".
+_PLACEHOLDER_PASSWORDS = {"", "change-this-to-a-strong-password"}
+
+
+def _env_password_usable() -> bool:
+    pw = settings.PORTAL_PASSWORD
+    return pw not in _PLACEHOLDER_PASSWORDS and len(pw) >= 8
+
+
+def setup_problems() -> list[str]:
+    """Config mistakes that block login or sending; shown at startup and on the login page."""
+    problems = []
+    if store.load_auth() is None and not _env_password_usable():
+        problems.append("PORTAL_PASSWORD in .env is missing, still the example value, "
+                        "or shorter than 8 characters. Set your own and restart.")
+    if not settings.DEVICE_API_KEY:
+        problems.append("DEVICE_API_KEY in .env is empty. Paste the key you were given and restart.")
+    return problems
+
+
 def _check_credentials(email: str, password: str) -> bool:
     # If the admin has changed their credentials in the portal, use those.
     if store.load_auth() is not None:
         return store.verify_auth(email, password)
     # Otherwise fall back to the initial credentials from .env.
-    if not settings.PORTAL_PASSWORD:
+    if not _env_password_usable():
         return False
     email_ok = hmac.compare_digest(
         email.strip().lower(), settings.PORTAL_EMAIL.strip().lower()
@@ -158,6 +178,7 @@ def _message_page(title: str, message: str, status: int = 400) -> HTMLResponse:
 
 def _login_page(error: str = "") -> str:
     err = f'<p style="color:var(--red);font-size:.9rem;margin:8px 0 0">{html.escape(error)}</p>' if error else ""
+    err += "".join(f'<div class="banner">Setup needed: {html.escape(p)}</div>' for p in setup_problems())
     return _page("Counter — Login", f"""
       <header class="bar"><h1>Library Counter</h1></header>
       <div class="card" style="max-width:420px;margin:40px auto">
@@ -237,10 +258,7 @@ def _camera_form(cam: dict | None = None) -> str:
 def _dashboard(request: Request) -> str:
     cams = store.load_cameras()
     warnings = []
-    if not settings.PORTAL_PASSWORD:
-        warnings.append("No portal password is set. Set <code>PORTAL_PASSWORD</code> in .env and restart.")
-    if not settings.DEVICE_API_KEY:
-        warnings.append("No <code>DEVICE_API_KEY</code> set — counts are sent unauthenticated. Set it here and on the backend.")
+    warnings.extend(html.escape(p) for p in setup_problems())
     banner = "".join(f'<div class="banner">⚠️ {w}</div>' for w in warnings)
 
     rows = ""
@@ -561,4 +579,6 @@ if __name__ == "__main__":
     # ASCII only: Windows consoles/redirected output may not encode arrows etc.
     print(f"\n  Library Counter portal  ->  http://{settings.PORTAL_HOST}:{settings.PORTAL_PORT}")
     print(f"  Sending counts to       ->  {settings.BACKEND_URL}\n")
+    for p in setup_problems():
+        print(f"  !! SETUP NEEDED: {p}")
     uvicorn.run(app, host=settings.PORTAL_HOST, port=settings.PORTAL_PORT, log_level="warning")
