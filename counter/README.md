@@ -34,7 +34,7 @@ local network.
 1. **Put this folder on a short path**, e.g. `C:\library-counter`. Windows limits
    file paths to 260 characters and the detection engine has deeply nested files,
    so a deep location (like inside OneDrive\Desktop\...) breaks its install.
-   `install.bat` checks this for you.
+   `install.bat` checks this for you. (macOS/Linux have no such limit.)
 
 2. **Install Python 3.11 or 3.12** (tick "Add Python to PATH"), then
    **double-click `install.bat`**. It creates a private environment (`venv`),
@@ -45,6 +45,10 @@ local network.
    and `venv\Scripts\pip install -r requirements.txt`.)
    The model file `yolov8s.pt` is included; if missing it downloads on first run.
 
+   **macOS / Linux:** install Python 3.10+ (macOS: python.org; Ubuntu:
+   `sudo apt install python3 python3-venv`), open Terminal in this folder and run
+   `bash install.sh`. It does the same steps and creates `.env`.
+
 3. **Fill in the config file** `.env`:
    - `PORTAL_PASSWORD` — a strong password for the local portal login.
    - `DEVICE_API_KEY` — the key shared with the dashboard backend (we provide it,
@@ -54,7 +58,7 @@ local network.
 
 4. **Start it:**
    - Windows: double-click `run.bat`
-   - Linux/macOS: `./run.sh`  (or `python app.py`)
+   - macOS/Linux: `bash run.sh`
 
 5. Open **http://127.0.0.1:8900** in a browser on that machine and sign in.
    The email/password from `.env` is the initial login; it can be changed any
@@ -78,7 +82,8 @@ table and on the student dashboard. It reconnects on its own if a camera drops.
 
 For a quick demonstration without CCTV access, run the demo version:
 
-- Windows: double-click `run-demo.bat`  (or `python demo.py`)
+- Windows: double-click `run-demo.bat`
+- macOS/Linux: `bash run-demo.sh`
 - Open **http://127.0.0.1:8901** in Chrome/Edge and sign in (same email/password).
 - Pick a zone, click **Start camera**, allow camera access when the browser asks.
 
@@ -93,6 +98,7 @@ So it keeps running after the machine is restarted or switched off/on, and
 restarts itself if it ever stops, install it as a background service:
 
 1. Right-click **`install-service.bat`** → **Run as administrator**.
+   (Windows only. On macOS/Linux, keep `bash run.sh` running in a Terminal for the pilot.)
 
 That's it. It now:
 - starts automatically at every boot (no login needed),

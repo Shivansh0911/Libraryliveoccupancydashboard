@@ -53,6 +53,7 @@ venv\Scripts\python.exe -m pip install --disable-pip-version-check -q --timeout 
 if errorlevel 1 goto :fail
 
 echo [3/3] Checking everything loads...
+set "YOLO_OFFLINE=1"
 venv\Scripts\python.exe -c "import ultralytics, cv2, fastapi, cryptography; print('      All components OK')"
 if errorlevel 1 goto :fail
 
